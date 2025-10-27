@@ -215,6 +215,24 @@ class DatabaseManager {
     stmt.run(starred ? 1 : 0, id);
   }
 
+  markAsUnread(id: string): void {
+    const stmt = this.db.prepare('UPDATE emails SET is_read = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    stmt.run(id);
+  }
+
+  deleteEmail(id: string): void {
+    // For now, we'll mark as deleted by moving to trash folder
+    // In a real implementation, you might want to actually delete or move to a trash table
+    const stmt = this.db.prepare('UPDATE emails SET folder = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    stmt.run('TRASH', id);
+  }
+
+  archiveEmail(id: string): void {
+    // Move email to archive folder
+    const stmt = this.db.prepare('UPDATE emails SET folder = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    stmt.run('ARCHIVE', id);
+  }
+
   // Contact operations
   private upsertContact(email: string, name?: string): void {
     // Note: domain is a GENERATED column and will be auto-calculated from email

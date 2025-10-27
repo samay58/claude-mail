@@ -8,14 +8,19 @@
     "tui": "tsx src/tui.tsx",
     "dev": "tsx src/tui.tsx",
     "build": "tsc",
-    "start": "tsx src/tui.tsx"
+    "start": "tsx src/tui.tsx",
+    "agent": "tsx src/agent/server.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
     "@types/nodemailer": "^7.0.1",
     "better-sqlite3": "^9.4.3",
     "chalk": "^5.3.0",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "express": "^4.18.2",
     "ink": "^4.4.1",
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^5.0.1",
