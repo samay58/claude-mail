@@ -1,0 +1,57 @@
+{
+  "email": {
+    "provider": "gmail",
+    "maxSyncEmails": 10000,
+    "syncInterval": 60000,
+    "indexStrategy": "incremental"
+  },
+  "agent": {
+    "model": "claude-3-opus-20240229",
+    "maxContextTokens": 100000,
+    "temperature": {
+      "search": 0.3,
+      "draft": 0.7,
+      "analysis": 0.5
+    },
+    "autoAnalyze": false
+  },
+  "safety": {
+    "level": "strict",
+    "autoSend": false,
+    "requireReviewFor": [
+      "financial",
+      "legal",
+      "sensitive"
+    ],
+    "blockPatterns": []
+  },
+  "tui": {
+    "theme": "claude",
+    "refreshRate": 1000,
+    "shortcuts": {
+      "quit": [
+        "q",
+        "ctrl+c"
+      ],
+      "search": [
+        "/",
+        "ctrl+f"
+      ],
+      "reply": "r",
+      "forward": "f",
+      "delete": "d",
+      "archive": "a",
+      "help": "?",
+      "refresh": "ctrl+r"
+    }
+  },
+  "indexing": {
+    "paths": {
+      "data": "./data",
+      "cache": "./data/cache",
+      "logs": "./data/logs"
+    },
+    "compression": true,
+    "encryption": false
+  }
+}

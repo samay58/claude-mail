@@ -1,0 +1,18 @@
+# Node
+node_modules/
+dist/
+.DS_Store
+
+# Env
+.env
+
+# Logs and generated data (keep sample file committed)
+data/profile/profile.json
+data/drafts/*.md
+data/logs/mail-*.jsonl
+
+# Editor
+.idea/
+.vscode/
+*.swp
+

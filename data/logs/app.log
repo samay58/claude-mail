@@ -1,0 +1,45 @@
+{"context":"ConfigManager","level":"warn","message":"No config file found, using defaults","timestamp":"2025-09-21T22:55:16.622Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration saved","timestamp":"2025-09-21T22:55:16.632Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-21T22:55:16.632Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-21T22:55:16.633Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-21T22:56:03.984Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-21T22:56:03.994Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-21T22:56:03.995Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-21T22:56:47.713Z"}
+{"context":"Main","error":"process.stdin.setRawMode is not a function","level":"error","message":"Failed to start email agent:","stack":"TypeError: process.stdin.setRawMode is not a function\n    at startEmailAgent (/Users/samaydhawan/email-agent/dist/index.js:159:23)\n    at async Command.<anonymous> (/Users/samaydhawan/email-agent/dist/index.js:81:9)","timestamp":"2025-09-21T22:56:47.738Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-21T22:57:12.099Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-21T22:57:12.109Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-21T22:57:12.110Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-21T23:20:19.252Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-21T23:20:19.262Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-21T23:20:19.263Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-21T23:20:25.449Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-21T23:20:25.459Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-21T23:20:25.459Z"}
+{"context":"Main","level":"info","message":"Shutting down email agent...","timestamp":"2025-09-21T23:20:32.472Z"}
+{"context":"EmailAgent","level":"info","message":"Shutting down email agent...","timestamp":"2025-09-21T23:20:32.473Z"}
+{"context":"EmailIndexer","level":"info","message":"Shutting down indexer...","timestamp":"2025-09-21T23:20:32.473Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-21T23:20:48.950Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-21T23:20:48.960Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-21T23:20:48.961Z"}
+{"context":"Main","level":"info","message":"Shutting down email agent...","timestamp":"2025-09-21T23:20:50.492Z"}
+{"context":"EmailAgent","level":"info","message":"Shutting down email agent...","timestamp":"2025-09-21T23:20:50.493Z"}
+{"context":"EmailIndexer","level":"info","message":"Shutting down indexer...","timestamp":"2025-09-21T23:20:50.494Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-21T23:25:20.080Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-21T23:25:20.093Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-21T23:25:20.094Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-22T01:41:24.836Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-22T01:41:24.856Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-22T01:41:24.857Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-22T01:41:33.623Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-22T01:41:33.633Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-22T01:41:33.633Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-22T01:41:44.098Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-22T01:41:44.107Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-22T01:41:44.108Z"}
+{"context":"Main","level":"info","message":"Shutting down email agent...","timestamp":"2025-09-22T01:41:47.850Z"}
+{"context":"EmailAgent","level":"info","message":"Shutting down email agent...","timestamp":"2025-09-22T01:41:47.850Z"}
+{"context":"EmailIndexer","level":"info","message":"Shutting down indexer...","timestamp":"2025-09-22T01:41:47.851Z"}
+{"context":"ConfigManager","level":"info","message":"Configuration loaded successfully","timestamp":"2025-09-22T01:54:52.374Z"}
+{"context":"ConfigManager","level":"info","message":"Environment overrides applied","timestamp":"2025-09-22T01:54:52.383Z"}
+{"context":"EmailAgent","level":"info","message":"Initializing email agent components...","timestamp":"2025-09-22T01:54:52.384Z"}
