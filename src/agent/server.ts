@@ -186,8 +186,9 @@ app.post('/sync', asyncHandler(async (req: any, res: any) => {
 
   // Trigger async sync - don't wait for completion
   const imap = ImapManager.getInstance();
-  imap.getRecentEmails(days, limit).then(emails => {
+  imap.getRecentEmails(days, limit).then(async emails => {
     // Insert emails into database
+    const insertedIds: string[] = [];
     emails.forEach(email => {
       const emailRecord = {
         id: email.id,
@@ -208,8 +209,24 @@ app.post('/sync', asyncHandler(async (req: any, res: any) => {
         labels: '[]',
       };
       db.insertEmail(emailRecord);
+      insertedIds.push(email.id);
     });
     console.log(`✅ Synced ${emails.length} emails`);
+
+    // Auto-prioritize newly synced emails
+    console.log(`[Sync] Auto-prioritizing ${insertedIds.length} new emails...`);
+    const emailsToProcess = emails.map(e => db.getEmailById(e.id)).filter(Boolean) as any[];
+
+    let prioritized = 0;
+    for (const email of emailsToProcess) {
+      try {
+        await ai.prioritizeEmail(email);
+        prioritized++;
+      } catch (err) {
+        console.error(`[Sync] Prioritization error for ${email.id}:`, err);
+      }
+    }
+    console.log(`[Sync] ✅ Prioritized ${prioritized}/${emailsToProcess.length} emails`);
   }).catch(err => {
     console.error('IMAP sync error:', err);
   });
@@ -440,6 +457,41 @@ app.post('/ai/priority-explain', asyncHandler(async (req: any, res: any) => {
     reason: priority.reason,
     suggestedAction: priority.suggestedAction
   });
+}));
+
+app.post('/ai/prioritize-all', asyncHandler(async (req: any, res: any) => {
+  const limit = parseInt(req.body.limit as string) || 50;
+
+  // Get emails without priority scores (or all recent emails)
+  const emails = db.getEmailsWithPriority(limit);
+  const emailsToPrioritize = emails.filter(e => !e.priority_score || e.priority_score === 50);
+
+  console.log(`[Prioritize] Starting bulk prioritization for ${emailsToPrioritize.length} emails`);
+
+  // Respond immediately - prioritization happens in background
+  res.json({
+    success: true,
+    message: `Prioritizing ${emailsToPrioritize.length} emails in background`,
+    count: emailsToPrioritize.length,
+    timestamp: new Date().toISOString()
+  });
+
+  // Process prioritization asynchronously
+  (async () => {
+    let processed = 0;
+    for (const email of emailsToPrioritize) {
+      try {
+        await ai.prioritizeEmail(email);
+        processed++;
+        if (processed % 10 === 0) {
+          console.log(`[Prioritize] Progress: ${processed}/${emailsToPrioritize.length}`);
+        }
+      } catch (err) {
+        console.error(`[Prioritize] Error processing email ${email.id}:`, err);
+      }
+    }
+    console.log(`[Prioritize] ✅ Completed: ${processed}/${emailsToPrioritize.length} emails prioritized`);
+  })();
 }));
 
 // ============================================================================

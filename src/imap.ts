@@ -17,10 +17,26 @@ export interface ParsedEmail {
   flags: string[];
 }
 
+// Connection state enum
+enum ConnectionState {
+  DISCONNECTED = 'disconnected',
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  RECONNECTING = 'reconnecting',
+  ERROR = 'error'
+}
+
 class ImapManager {
   private imap: Imap | null = null;
   private config: any;
   private static instance: ImapManager;
+
+  // Connection management
+  private connectionState: ConnectionState = ConnectionState.DISCONNECTED;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private lastConnectionError: Error | null = null;
 
   private constructor() {
     this.config = {
@@ -51,19 +67,52 @@ class ImapManager {
   }
 
   private async connect(): Promise<void> {
-    if (this.imap && this.imap.state === 'authenticated') {
+    if (this.imap && this.imap.state === 'authenticated' && this.connectionState === ConnectionState.CONNECTED) {
       return;
     }
+
+    // Clear any pending reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    this.connectionState = ConnectionState.CONNECTING;
 
     return new Promise((resolve, reject) => {
       this.imap = new Imap(this.config);
 
       this.imap.once('ready', () => {
+        console.log('[IMAP] Connected successfully');
+        this.connectionState = ConnectionState.CONNECTED;
+        this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+        this.lastConnectionError = null;
         resolve();
       });
 
       this.imap.once('error', (err: Error) => {
+        console.error('[IMAP] Connection error:', err.message);
+        this.connectionState = ConnectionState.ERROR;
+        this.lastConnectionError = err;
         reject(err);
+      });
+
+      // Add persistent error handler for connection drops
+      this.imap.on('error', (err: Error) => {
+        console.error('[IMAP] Runtime error:', err.message);
+        this.connectionState = ConnectionState.ERROR;
+        this.lastConnectionError = err;
+        this.scheduleReconnect();
+      });
+
+      // Handle connection end
+      this.imap.on('end', () => {
+        console.log('[IMAP] Connection ended');
+        if (this.connectionState === ConnectionState.CONNECTED) {
+          // Unexpected disconnect
+          this.connectionState = ConnectionState.DISCONNECTED;
+          this.scheduleReconnect();
+        }
       });
 
       this.imap.connect();
@@ -187,7 +236,8 @@ class ImapManager {
 
   async getRecentEmails(days = 7, limit = 150): Promise<ParsedEmail[]> {
     try {
-      await this.connect();
+      // Ensure connection is established (will reconnect if needed)
+      await this.ensureConnected();
       await this.openBox('INBOX', true);
 
       // Calculate date for SINCE search
@@ -208,17 +258,106 @@ class ImapManager {
 
     } catch (error) {
       console.error('Email fetch failed:', error);
+      // Don't disconnect on error - let reconnection logic handle it
       throw error;
-    } finally {
-      this.disconnect();
     }
+    // REMOVED finally block - keep connection alive for reuse
   }
 
   disconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    this.connectionState = ConnectionState.DISCONNECTED;
+
     if (this.imap) {
       this.imap.end();
       this.imap = null;
     }
+  }
+
+  /**
+   * Schedules a reconnection attempt with exponential backoff
+   */
+  private scheduleReconnect(): void {
+    // Don't schedule if already scheduled or if we've exceeded max attempts
+    if (this.reconnectTimer || this.reconnectAttempts >= this.maxReconnectAttempts) {
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        console.error('[IMAP] Max reconnection attempts reached. Manual intervention required.');
+      }
+      return;
+    }
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    this.reconnectAttempts++;
+
+    console.log(`[IMAP] Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnect();
+    }, delay);
+  }
+
+  /**
+   * Attempts to reconnect to IMAP server
+   */
+  private async reconnect(): Promise<void> {
+    this.reconnectTimer = null;
+    this.connectionState = ConnectionState.RECONNECTING;
+
+    console.log('[IMAP] Attempting to reconnect...');
+
+    try {
+      // Clean up old connection
+      if (this.imap) {
+        this.imap.removeAllListeners();
+        this.imap.end();
+        this.imap = null;
+      }
+
+      // Attempt new connection
+      await this.connect();
+      console.log('[IMAP] Reconnection successful');
+    } catch (error) {
+      console.error('[IMAP] Reconnection failed:', error);
+      // scheduleReconnect() will be called by the error handler in connect()
+    }
+  }
+
+  /**
+   * Ensures IMAP connection is established before operations
+   * Automatically reconnects if disconnected
+   */
+  private async ensureConnected(): Promise<void> {
+    // If already connected, return immediately
+    if (this.connectionState === ConnectionState.CONNECTED && this.imap && this.imap.state === 'authenticated') {
+      return;
+    }
+
+    // If currently connecting or reconnecting, wait a bit and retry
+    if (this.connectionState === ConnectionState.CONNECTING || this.connectionState === ConnectionState.RECONNECTING) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return this.ensureConnected();
+    }
+
+    // If disconnected or error state, attempt connection
+    if (this.connectionState === ConnectionState.DISCONNECTED || this.connectionState === ConnectionState.ERROR) {
+      console.log('[IMAP] Connection not established, connecting...');
+      await this.connect();
+    }
+  }
+
+  /**
+   * Get current connection status (for debugging/monitoring)
+   */
+  getConnectionStatus(): { state: string; error: string | null } {
+    return {
+      state: this.connectionState,
+      error: this.lastConnectionError?.message || null
+    };
   }
 }
 
