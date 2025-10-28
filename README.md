@@ -2,64 +2,53 @@
 
 ![Claude Mail Cover Art](./assets/cover.png)
 
-An intelligent terminal-based email client powered by Claude AI that brings natural language search, smart replies, and enhanced email management to your inbox.
+# Claude Email TUI
 
-**Primary Interface**: Beautiful Go Bubble Tea TUI with RFC-compliant priority scoring
+A terminal email client with Claude's brain and Bubble Tea's looks.
 
-![Claude Email Agent](https://img.shields.io/badge/Powered%20by-Claude-FF6B35?style=for-the-badge)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-![Go](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)
-![Terminal](https://img.shields.io/badge/Terminal-4D4D4D?style=for-the-badge&logo=windows-terminal&logoColor=white)
+```
+🔴 CEO just emailed about Q4 numbers                    Priority: 95
+🟠 Sarah: Can you review the deployment plan?           Priority: 78
+🟢 Team lunch moved to Thursday                         Priority: 62
+⚫ [Newsletter] This week in JavaScript                 Priority: 15
+```
 
-## ✨ Features
+Natural language search. AI-suggested replies. Priority scoring that actually works. All from your terminal, all with vim keybindings.
 
-### 🎯 Core Functionality
-- **Full Email Management**: Read, reply, forward, and compose emails
-- **IMAP/SMTP Support**: Works with Gmail and other email providers
-- **SQLite Database**: Fast local storage with full-text search
-- **Real Email Sending**: Fully functional email client, not just a viewer
+## Features that matter
 
-### 🤖 AI-Powered Intelligence (Claude)
-- **Smart Reply Generation**: Get AI-suggested responses in multiple tones
-- **Email Prioritization**: Automatic importance scoring and categorization
-- **Semantic Search**: Natural language queries like "emails from last week about project"
-- **Sender Profiling**: Learn communication patterns and styles
-- **Quick Replies**: One-click response suggestions
+**Claude integration**
+Your emails get scored for priority using RFC signals—newsletters, auto-replies, and OTPs automatically sink to the bottom. Search with phrases like "emails about the API from last week" instead of cryptic filters. Get reply suggestions in multiple tones when you're stuck staring at a blank compose window.
 
-### 🎨 Beautiful Terminal UI
-- **Claude-Themed Interface**: Signature orange (#FF6B35) aesthetic
-- **Full Keyboard Navigation**: Vim-style shortcuts (j/k, g/G, etc.)
-- **Multiple Views**: List view, detail view, composer, search
-- **Real-Time Updates**: Live sync status and progress indicators
-- **Split Layout**: Email list + preview in main view
+**Terminal UI you'll actually enjoy**
+Claude's signature orange theme. Split-pane view with inbox and preview. Real-time sync indicators. Keyboard shortcuts that feel natural if you've used vim (or any terminal tool that doesn't hate you).
 
-## 🚀 Quick Start
+**Real email client, not a toy**
+IMAP/SMTP support for Gmail and other providers. SQLite with full-text search for instant results. Compose, reply, forward, star—everything works. Emails actually send.
 
-### **Step 1: Start the Backend API Server**
+## Get it running
+
+Start the API server (handles IMAP, SQLite, Claude):
 
 ```bash
 cd email-agent
-npm install
-npm run build
+npm install && npm run build
 
-# Configure .env file (Gmail App Password required)
-# 1. Go to https://myaccount.google.com/security
-# 2. Enable 2-Factor Authentication
-# 3. Go to "App passwords" and generate one for "Mail"
+# Create .env with your Gmail app password
+# Go to https://myaccount.google.com/security
+# Enable 2FA → App passwords → Mail
 
-# Create .env with:
 AUTH_METHOD=imap
 IMAP_HOST=imap.gmail.com
 IMAP_PORT=993
 IMAP_USER=your.email@gmail.com
 IMAP_PASSWORD=your-16-char-app-password
-ANTHROPIC_API_KEY=sk-ant-api...  # Optional, for AI features
+ANTHROPIC_API_KEY=sk-ant-api...  # for AI features
 
-# Start the API server (runs on port 5178)
 npm run agent
 ```
 
-### **Step 2: Start the Go TUI Client** (Primary Interface)
+Start the TUI (the interface you'll use):
 
 ```bash
 cd ../claude-mail-tui
@@ -67,84 +56,48 @@ go build -o claudemail ./cmd/claudemail
 ./claudemail
 ```
 
-You'll see the beautiful terminal interface with priority-scored emails! 🎉
+Your inbox appears, priority-scored and ready.
 
-**Priority Indicators:**
-- 🔴 **Urgent** (≥90): Immediate attention required
-- 🟠 **Important** (70-89): High priority, respond today
-- 🟢 **Normal** (50-69): Standard emails
-- ⚫ **Low** (30-49): Optional, low priority
-- Newsletters and OTPs automatically filtered as low priority!
+## Navigation
 
-## ⌨️ Keyboard Shortcuts
+The basics work like vim:
 
-### Navigation
-- `j/k` or `↑/↓` - Navigate emails
-- `g/G` - Jump to top/bottom
-- `Space` or `PgDn` - Page down
-- `PgUp` - Page up
-- `Enter` - Open email details
+`j/k` move, `g/G` jump to top/bottom, Enter opens email
 
-### Actions
-- `c` - Compose new email
-- `r` - Reply to current email
-- `R` - Reply all
-- `f` - Forward email
-- `t` - Toggle star
-- `m` - Mark as read/unread
-- `s` - Sync emails from server
-- `/` - Search emails
-- `q` - Quit application
+Actions are single keys:
 
-### In Email View
-- `ESC` or `q` - Back to list
-- `j/k` - Scroll content
-- All reply/forward shortcuts work here too
+`c` compose, `r` reply, `R` reply all, `f` forward, `t` star, `m` mark read/unread, `s` sync, `/` search, `q` quit
 
-### In Composer
-- `Tab/Shift+Tab` - Navigate fields
-- `Ctrl+S` - Send email
-- `Ctrl+D` - Save draft
-- `Ctrl+A` - Show AI suggestions (when available)
-- `ESC` - Cancel
+In composer:
 
-## 🏗️ Architecture
+Tab between fields, Ctrl+S sends, Ctrl+A shows AI suggestions, Esc cancels
 
-### **Two-Tier Design**
+Everything else you'd expect (page up/down, scroll, back to list) just works.
+
+## Architecture
 
 ```
 ┌─────────────────────────────────┐
-│   Go Bubble Tea TUI (Frontend)  │  ← Primary user interface
-│   - Beautiful terminal UI        │  ← Priority indicators (🔴🟠🟢⚫)
-│   - Keyboard navigation          │  ← Inbox, detail, compose views
-│   - Real-time updates            │
+│   Go Bubble Tea TUI (Frontend)  │  ← What you see
+│   Claude orange theme            │  ← Priority indicators
+│   Keyboard navigation            │  ← Inbox, detail, compose
 └────────────┬────────────────────┘
-             │ HTTP/JSON
-             │ localhost:5178
+             │ HTTP/JSON on localhost:5178
 ┌────────────▼────────────────────┐
-│  Node.js API Server (Backend)   │  ← Business logic layer
-│  - RFC-compliant feature extract │  ← Priority scoring engine
-│  - SQLite + FTS5 database        │  ← Email storage & search
-│  - IMAP/SMTP email sync          │  ← Gmail/email provider
-│  - Claude AI integration         │  ← Smart replies & analysis
+│  Node.js API Server (Backend)   │  ← Business logic
+│  RFC-based priority scoring      │  ← 🔴🟠🟢⚫ calculation
+│  SQLite + FTS5 for search        │  ← Email storage
+│  IMAP/SMTP sync                  │  ← Gmail connection
+│  Claude AI integration           │  ← Smart features
 └──────────────────────────────────┘
 ```
 
-### **Key Technologies**
+Priority scoring uses RFC standards: newsletters (2369/2919), auto-replies (3834), calendar invites (5545), OTPs (6238) all get filtered down automatically.
 
-**Frontend (Go TUI)**:
-- **Go + Bubble Tea** - Modern terminal UI framework
-- **Lipgloss** - Styling and theming
-- **HTTP Client** - API communication
+## Tech
 
-**Backend (Node.js API)**:
-- **TypeScript** - Type-safe throughout
-- **Express** - REST API server
-- **SQLite + FTS5** - Fast local database with full-text search
-- **RFC-Based Scoring** - Newsletter (RFC 2369/2919), Auto-gen (RFC 3834), Calendar (RFC 5545), OTP (RFC 6238)
-- **Claude AI (Haiku)** - Optional AI features (smart replies, summaries)
-- **IMAP/SMTP** - Email sync and sending
+**Frontend:** Go, Bubble Tea, Lipgloss  
+**Backend:** TypeScript, Express, SQLite with FTS5, Claude AI (Haiku)  
+**Email:** IMAP/SMTP with Gmail app passwords
 
----
-
-Built with ❤️ using Claude AI
+Built with Bubble Tea and Claude. No electrons were harmed.
