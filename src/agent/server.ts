@@ -12,6 +12,8 @@ import DatabaseManager, { EmailRecord } from '../database.js';
 import AIManager from '../core/AIManager.js';
 import SMTPManager from '../core/SMTPManager.js';
 import ImapManager from '../imap.js';
+import { FeatureExtractor } from '../core/features/FeatureExtractor.js';
+import { PriorityScorer } from '../core/features/PriorityScorer.js';
 
 const app = express();
 const port = parseInt(process.env.AGENT_PORT || '5178');
@@ -24,6 +26,8 @@ app.use(express.json());
 const db = DatabaseManager.getInstance();
 const ai = AIManager.getInstance();
 const smtp = SMTPManager.getInstance();
+const featureExtractor = FeatureExtractor.getInstance();
+const priorityScorer = PriorityScorer.getInstance();
 
 // Error handler wrapper
 const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
@@ -213,20 +217,35 @@ app.post('/sync', asyncHandler(async (req: any, res: any) => {
     });
     console.log(`✅ Synced ${emails.length} emails`);
 
-    // Auto-prioritize newly synced emails
-    console.log(`[Sync] Auto-prioritizing ${insertedIds.length} new emails...`);
+    // Auto-prioritize newly synced emails using NEW PriorityScorer system
+    console.log(`[Sync] Auto-prioritizing ${insertedIds.length} new emails (RFC-based scoring)...`);
     const emailsToProcess = emails.map(e => db.getEmailById(e.id)).filter(Boolean) as any[];
 
     let prioritized = 0;
     for (const email of emailsToProcess) {
       try {
-        await ai.prioritizeEmail(email);
+        // Extract features using FeatureExtractor (includes all RFC gates)
+        const features = await featureExtractor.extractFeatures(email);
+
+        // Calculate priority using PriorityScorer (weighted linear model)
+        const priorityScore = priorityScorer.calculatePriority(features);
+
+        // Store priority score in ai_cache table
+        db.setAICache(email.id, {
+          priority_score: priorityScore.score,
+          priority_category: priorityScore.category,
+          quick_replies: '[]',
+          draft_suggestions: '[]'
+        });
+
+        console.log(`[Sync] Scored ${email.id}: ${priorityScore.score} (${priorityScore.category})`);
+
         prioritized++;
       } catch (err) {
         console.error(`[Sync] Prioritization error for ${email.id}:`, err);
       }
     }
-    console.log(`[Sync] ✅ Prioritized ${prioritized}/${emailsToProcess.length} emails`);
+    console.log(`[Sync] ✅ Prioritized ${prioritized}/${emailsToProcess.length} emails using NEW scoring system`);
   }).catch(err => {
     console.error('IMAP sync error:', err);
   });
@@ -476,22 +495,213 @@ app.post('/ai/prioritize-all', asyncHandler(async (req: any, res: any) => {
     timestamp: new Date().toISOString()
   });
 
-  // Process prioritization asynchronously
+  // Process prioritization asynchronously using NEW PriorityScorer system
   (async () => {
     let processed = 0;
     for (const email of emailsToPrioritize) {
       try {
-        await ai.prioritizeEmail(email);
+        // Extract features using FeatureExtractor (includes all RFC gates)
+        const features = await featureExtractor.extractFeatures(email);
+
+        // Calculate priority using PriorityScorer (weighted linear model)
+        const priorityScore = priorityScorer.calculatePriority(features);
+
+        // Store priority score in ai_cache table
+        db.setAICache(email.id, {
+          priority_score: priorityScore.score,
+          priority_category: priorityScore.category,
+          quick_replies: '[]',
+          draft_suggestions: '[]'
+        });
+
         processed++;
         if (processed % 10 === 0) {
-          console.log(`[Prioritize] Progress: ${processed}/${emailsToPrioritize.length}`);
+          console.log(`[Prioritize] Progress: ${processed}/${emailsToPrioritize.length} (NEW scoring system)`);
         }
       } catch (err) {
         console.error(`[Prioritize] Error processing email ${email.id}:`, err);
       }
     }
-    console.log(`[Prioritize] ✅ Completed: ${processed}/${emailsToPrioritize.length} emails prioritized`);
+    console.log(`[Prioritize] ✅ Completed: ${processed}/${emailsToPrioritize.length} emails prioritized with NEW scoring`);
   })();
+}));
+
+// ============================================================================
+// PRIORITY SCORING ROUTES (Week 3 - New RFC-based scoring system)
+// ============================================================================
+
+/**
+ * POST /emails/score
+ * Score a single email using the new PriorityScorer system
+ *
+ * Request: { emailId: string }
+ * Response: { emailId, score, category, confidence, reasoning, features, featureWeights }
+ */
+app.post('/emails/score', asyncHandler(async (req: any, res: any) => {
+  const { emailId } = req.body;
+
+  if (!emailId) {
+    return res.status(400).json({ error: 'Missing emailId' });
+  }
+
+  const email = db.getEmailById(emailId);
+  if (!email) {
+    return res.status(404).json({ error: 'Email not found' });
+  }
+
+  // Extract features using FeatureExtractor
+  const features = await featureExtractor.extractFeatures(email);
+
+  // Calculate priority score
+  const priorityScore = priorityScorer.calculatePriority(features);
+
+  // Get feature importance for explainability
+  const featureImportance = priorityScorer.getFeatureImportance(priorityScore);
+
+  res.json({
+    emailId: priorityScore.email_id,
+    score: priorityScore.score,
+    category: priorityScore.category,
+    confidence: priorityScore.confidence,
+    reasoning: priorityScore.reasoning,
+    features: features,
+    featureWeights: priorityScore.feature_weights,
+    featureImportance: featureImportance,
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * POST /emails/score/batch
+ * Score multiple emails in parallel using the new PriorityScorer system
+ *
+ * Request: { emailIds: string[], parallelism?: number }
+ * Response: { scores: Array<...>, stats: { total, successful, failed, duration } }
+ */
+app.post('/emails/score/batch', asyncHandler(async (req: any, res: any) => {
+  const { emailIds, parallelism = 10 } = req.body;
+
+  if (!emailIds || !Array.isArray(emailIds)) {
+    return res.status(400).json({ error: 'Missing or invalid emailIds array' });
+  }
+
+  const startTime = Date.now();
+  const results: any[] = [];
+  const errors: Array<{ emailId: string; error: string }> = [];
+
+  // Process in batches for parallel execution
+  const batchSize = Math.min(parallelism, 50); // Max 50 concurrent
+  for (let i = 0; i < emailIds.length; i += batchSize) {
+    const batch = emailIds.slice(i, i + batchSize);
+
+    const batchPromises = batch.map(async (emailId) => {
+      try {
+        const email = db.getEmailById(emailId);
+        if (!email) {
+          throw new Error(`Email ${emailId} not found`);
+        }
+
+        // Extract features
+        const features = await featureExtractor.extractFeatures(email);
+
+        // Calculate priority
+        const priorityScore = priorityScorer.calculatePriority(features);
+
+        return {
+          emailId: priorityScore.email_id,
+          score: priorityScore.score,
+          category: priorityScore.category,
+          confidence: priorityScore.confidence,
+          reasoning: priorityScore.reasoning,
+          featureWeights: priorityScore.feature_weights
+        };
+      } catch (err: any) {
+        errors.push({ emailId, error: err.message });
+        return null;
+      }
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults.filter(r => r !== null));
+  }
+
+  const duration = Date.now() - startTime;
+
+  res.json({
+    scores: results,
+    stats: {
+      total: emailIds.length,
+      successful: results.length,
+      failed: errors.length,
+      duration: `${duration}ms`,
+      parallelism: batchSize
+    },
+    errors: errors.length > 0 ? errors : undefined,
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * POST /emails/rescore
+ * Rescore all emails that don't have priority scores (or have default score of 50)
+ *
+ * Request: { limit?: number }
+ * Response: { scored: number, duration: string, errors: string[] }
+ */
+app.post('/emails/rescore', asyncHandler(async (req: any, res: any) => {
+  const limit = parseInt(req.body.limit as string) || 100;
+
+  const startTime = Date.now();
+
+  // Get emails without priority scores or with default score
+  const allEmails = db.getEmailsWithPriority(limit);
+  const emailsToScore = allEmails.filter(e => !e.priority_score || e.priority_score === 50);
+
+  console.log(`[Rescore] Starting rescore for ${emailsToScore.length} emails`);
+
+  const errors: string[] = [];
+  let scored = 0;
+
+  // Process emails sequentially to avoid overwhelming the system
+  for (const email of emailsToScore) {
+    try {
+      // Extract features
+      const features = await featureExtractor.extractFeatures(email);
+
+      // Calculate priority
+      const priorityScore = priorityScorer.calculatePriority(features);
+
+      // Store priority score in ai_cache table
+      db.setAICache(email.id, {
+        priority_score: priorityScore.score,
+        priority_category: priorityScore.category,
+        quick_replies: '[]',
+        draft_suggestions: '[]'
+      });
+
+      scored++;
+
+      if (scored % 10 === 0) {
+        console.log(`[Rescore] Progress: ${scored}/${emailsToScore.length}`);
+      }
+    } catch (err: any) {
+      console.error(`[Rescore] Error scoring email ${email.id}:`, err.message);
+      errors.push(`${email.id}: ${err.message}`);
+    }
+  }
+
+  const duration = Date.now() - startTime;
+
+  console.log(`[Rescore] ✅ Completed: ${scored}/${emailsToScore.length} emails scored in ${duration}ms`);
+
+  res.json({
+    success: true,
+    scored,
+    total: emailsToScore.length,
+    duration: `${duration}ms`,
+    errors: errors.length > 0 ? errors : undefined,
+    timestamp: new Date().toISOString()
+  });
 }));
 
 // ============================================================================

@@ -2,6 +2,33 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🎯 **PRIMARY INTERFACE: Go Bubble Tea TUI**
+
+**IMPORTANT**: The main user-facing application is the **Go Bubble Tea TUI** (`claude-mail-tui/`), NOT the Node.js server. The architecture is:
+
+```
+┌──────────────────────────────────┐
+│  Go Bubble Tea TUI (FRONTEND)    │  ← THIS IS THE PRIMARY INTERFACE
+│  Location: ../claude-mail-tui/   │  ← Users interact with THIS
+│  Port: Terminal UI (no network)  │  ← Beautiful priority-scored inbox
+└────────────┬─────────────────────┘
+             │ HTTP API calls
+             │ localhost:5178
+┌────────────▼─────────────────────┐
+│  Node.js API Server (BACKEND)    │  ← This is the BACKEND API
+│  Location: /email-agent/         │  ← RFC-based scoring engine
+│  Port: 5178                       │  ← Database, IMAP, SMTP, AI
+└──────────────────────────────────┘
+```
+
+**When working on this project**:
+1. ✅ **Test with the TUI FIRST** - Run `./claudemail` in the Go TUI directory
+2. ✅ **UI changes go in Go code** - `../claude-mail-tui/internal/ui/`
+3. ✅ **Backend/scoring changes go in Node.js** - `/email-agent/src/`
+4. ❌ **Don't confuse the two** - TUI shows priority scores FROM the API
+
+---
+
 ## 🏗️ Architecture Deep Dive
 
 ### Core Data Flow Pipeline

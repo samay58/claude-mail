@@ -51,6 +51,29 @@ class AIManager {
     }
   }
 
+  /**
+   * Helper to create cacheable content for prompt caching (90% cost reduction)
+   * Marks static instructions as cacheable, dynamic email content as non-cacheable
+   */
+  private createCacheableMessages(systemInstruction: string, emailContent: string) {
+    return [
+      {
+        role: 'user' as const,
+        content: [
+          {
+            type: 'text' as const,
+            text: systemInstruction,
+            cache_control: { type: 'ephemeral' as const }
+          },
+          {
+            type: 'text' as const,
+            text: emailContent
+          }
+        ]
+      }
+    ];
+  }
+
   static getInstance(): AIManager {
     if (!AIManager.instance) {
       AIManager.instance = new AIManager();
@@ -206,13 +229,8 @@ class AIManager {
       const senderEmail = email.sender_email.toLowerCase();
       const senderDomain = senderEmail.split('@')[1] || '';
 
-      const prompt = `Analyze this email intelligently and respond with ONLY valid JSON - no other text.
-
-EMAIL DETAILS:
-From: ${email.sender_name || email.sender_email}
-Sender Email: ${email.sender_email}
-Subject: ${email.subject}
-Body: ${email.body_text?.substring(0, 600) || email.snippet}
+      // Split into cacheable instructions and dynamic email content
+      const systemInstruction = `Analyze emails intelligently and respond with ONLY valid JSON - no other text.
 
 CRITICAL: Distinguish between these email types:
 
@@ -279,15 +297,16 @@ Return JSON with this exact format:
 
 Categories: urgent, important, normal, low, spam`;
 
+      const emailContent = `EMAIL DETAILS:
+From: ${email.sender_name || email.sender_email}
+Sender Email: ${email.sender_email}
+Subject: ${email.subject}
+Body: ${email.body_text?.substring(0, 600) || email.snippet}`;
+
       const response = await this.anthropic.messages.create({
         model: 'claude-3-haiku-20240307',
         max_tokens: 500,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+        messages: this.createCacheableMessages(systemInstruction, emailContent),
         temperature: 0.3
       });
 

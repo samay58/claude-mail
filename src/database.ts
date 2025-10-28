@@ -126,6 +126,126 @@ class DatabaseManager {
         VALUES (new.rowid, new.subject, new.sender_name, new.sender_email, new.body_text, new.snippet);
       END
     `);
+
+    // Phase 7: Intelligent Prioritization Tables
+
+    // Message features table for scoring algorithm
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS message_features (
+        -- Primary key
+        email_id TEXT PRIMARY KEY,
+
+        -- Deterministic gates (RFC-compliant detection)
+        is_newsletter INTEGER DEFAULT 0,           -- Has List-Unsubscribe (RFC 2369)
+        is_auto_generated INTEGER DEFAULT 0,       -- Has Auto-Submitted (RFC 3834)
+        has_list_unsubscribe INTEGER DEFAULT 0,    -- RFC 2369 header present
+        has_list_id INTEGER DEFAULT 0,             -- RFC 2919 header present
+        has_auto_submitted INTEGER DEFAULT 0,      -- RFC 3834 header present
+        has_calendar INTEGER DEFAULT 0,            -- text/calendar MIME (RFC 5545)
+        calendar_start_epoch INTEGER DEFAULT NULL, -- Event start time (unix timestamp)
+        otp_detected INTEGER DEFAULT 0,            -- Contains OTP pattern
+        otp_age_minutes INTEGER DEFAULT NULL,      -- Minutes since email received
+
+        -- Relationship features
+        relationship_score REAL DEFAULT 0.0,       -- 0.0-1.0 based on interaction history
+        is_vip_sender INTEGER DEFAULT 0,           -- User-designated VIP
+        reply_count_from_user INTEGER DEFAULT 0,   -- How many times user replied to sender
+        reply_count_to_user INTEGER DEFAULT 0,     -- How many times sender replied to user
+        last_interaction_epoch INTEGER DEFAULT NULL, -- Most recent exchange timestamp
+
+        -- Thread context features
+        thread_you_owe INTEGER DEFAULT 0,          -- User's turn to reply in thread
+        thread_recency_minutes INTEGER DEFAULT NULL, -- Minutes since last message in thread
+        thread_length INTEGER DEFAULT 1,           -- Total messages in thread
+
+        -- Content intent features
+        explicit_ask INTEGER DEFAULT 0,            -- Contains explicit request/question
+        deadline_epoch INTEGER DEFAULT NULL,       -- Detected deadline (unix timestamp)
+        time_to_deadline_min INTEGER DEFAULT NULL, -- Minutes until deadline
+        content_intent TEXT DEFAULT NULL,          -- Detected intent: 'request'|'inform'|'confirm'|'schedule'
+
+        -- Reply prediction
+        reply_need_prob REAL DEFAULT 0.5,          -- Predicted probability user will reply (0.0-1.0)
+        reply_latency_bucket INTEGER DEFAULT 3,    -- Predicted response time: 1=urgent, 2=today, 3=this_week, 4=someday
+
+        -- Metadata
+        extracted_at INTEGER DEFAULT (strftime('%s', 'now')),
+        updated_at INTEGER DEFAULT (strftime('%s', 'now')),
+
+        FOREIGN KEY (email_id) REFERENCES emails(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create indexes for message_features performance
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_features_relationship ON message_features(relationship_score DESC);
+      CREATE INDEX IF NOT EXISTS idx_features_deadline ON message_features(deadline_epoch) WHERE deadline_epoch IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_features_you_owe ON message_features(thread_you_owe) WHERE thread_you_owe = 1;
+      CREATE INDEX IF NOT EXISTS idx_features_vip ON message_features(is_vip_sender) WHERE is_vip_sender = 1;
+    `);
+
+    // Sender relationships table for interaction history
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS sender_relationships (
+        -- Primary key
+        sender_email TEXT PRIMARY KEY,
+
+        -- Interaction counts
+        emails_received INTEGER DEFAULT 0,
+        emails_sent_to INTEGER DEFAULT 0,
+        user_replies_count INTEGER DEFAULT 0,      -- User → Sender
+        sender_replies_count INTEGER DEFAULT 0,    -- Sender → User
+        two_way_exchanges INTEGER DEFAULT 0,       -- Conversations with both directions
+
+        -- Temporal features
+        first_contact_epoch INTEGER DEFAULT NULL,
+        last_contact_epoch INTEGER DEFAULT NULL,
+        avg_reply_latency_minutes REAL DEFAULT NULL, -- User's average response time to this sender
+
+        -- Computed scores
+        relationship_score REAL DEFAULT 0.0,       -- 0.0-1.0 composite score
+        is_vip INTEGER DEFAULT 0,                  -- User-designated VIP flag
+
+        -- Metadata
+        created_at INTEGER DEFAULT (strftime('%s', 'now')),
+        updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+      )
+    `);
+
+    // Index for relationship lookups
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_relationships_score ON sender_relationships(relationship_score DESC);
+    `);
+
+    // User feedback table for learning system
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS user_feedback (
+        -- Auto-increment primary key
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        -- Email reference
+        email_id TEXT NOT NULL,
+
+        -- User action type
+        action TEXT NOT NULL,  -- 'star'|'unstar'|'archive'|'mark_urgent'|'mark_bulk'|'move_to_bundle'
+
+        -- Context at time of action
+        predicted_score REAL DEFAULT NULL,         -- What our model predicted
+        predicted_bucket TEXT DEFAULT NULL,        -- 'urgent'|'important'|'needs_reply'|'bulk'
+
+        -- Timestamp
+        created_at INTEGER DEFAULT (strftime('%s', 'now')),
+
+        FOREIGN KEY (email_id) REFERENCES emails(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Indexes for feedback analysis
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_feedback_email ON user_feedback(email_id);
+      CREATE INDEX IF NOT EXISTS idx_feedback_action ON user_feedback(action);
+      CREATE INDEX IF NOT EXISTS idx_feedback_time ON user_feedback(created_at DESC);
+    `);
   }
 
   // Email operations
