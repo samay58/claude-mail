@@ -61,13 +61,18 @@
 
 ### Quick Start
 ```bash
-# Ensure agent is running
-cd /Users/samaydhawan/email-agent
+# Option 1: Use unified launcher
+cd claude-mail
+./start.sh
+
+# Option 2: Manual startup
+# Terminal 1: Start backend
+cd claude-mail/backend
 npm run agent  # Should show port 5178
 
-# In another terminal, run TUI
-cd /Users/samaydhawan/claude-mail-tui
-./claude-mail
+# Terminal 2: Run TUI
+cd claude-mail/tui
+./claudemail
 
 # Follow test plan in docs/PHASE5_MANUAL_TEST_PLAN.md
 ```

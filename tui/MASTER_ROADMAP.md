@@ -4,7 +4,8 @@
 **Architecture**: Hybrid (Node.js backend agent + Go TUI frontend)
 **Status**: Phase 5 Complete - 100% (75% Overall Progress)
 **Started**: 2025-10-27
-**Last Updated**: 2025-10-27
+**Last Updated**: 2025-12-16
+**Repository**: Monorepo (`claude-mail/tui/`)
 
 ---
 
@@ -17,7 +18,7 @@ A modern terminal email client that combines the speed and efficiency of TUI int
 **Hybrid Approach**: Node.js agent (existing codebase) + Go TUI (new frontend)
 - **Backend**: Reuse existing TypeScript managers (Database, AI, IMAP, SMTP)
 - **Frontend**: Bubble Tea framework for superior TUI experience
-- **Communication**: REST API on localhost:3456
+- **Communication**: REST API on localhost:5178
 
 ### Key Technologies
 - **Go TUI**: Bubble Tea (Elm architecture), Lipgloss (styling), Glamour (markdown)
@@ -33,7 +34,7 @@ A modern terminal email client that combines the speed and efficiency of TUI int
 **Duration**: 1 hour | **LOC**: 355 | **File**: `src/agent/server.ts`
 
 **Deliverables:**
-- Express HTTP server on port 3456
+- Express HTTP server on port 5178
 - Core email routes: `/emails`, `/emails/:id`, `/stats`
 - Action routes: `/compose`, `/reply`, `/sync`, `/star`, `/read`
 - AI routes: `/ai/quick-replies`, `/ai/summarize`, `/ai/draft-suggest`
@@ -492,7 +493,7 @@ Complete Go rewrite eliminating Node.js dependency:
 
 ### Communication
 - **Protocol**: REST over HTTP
-- **Port**: 3456 (localhost only)
+- **Port**: 5178 (localhost only)
 - **Format**: JSON request/response
 - **Auth**: None (local only)
 
@@ -501,7 +502,7 @@ Complete Go rewrite eliminating Node.js dependency:
 ## 📁 Project Structure
 
 ```
-claude-mail-tui/
+claude-mail/tui/           # Part of monorepo
 ├── cmd/
 │   └── claude-mail/
 │       └── main.go                 # Entry point
@@ -577,11 +578,11 @@ claude-mail-tui/
 
 ## 📞 Contact & Resources
 
-- **Repository**: [GitHub](https://github.com/samay58/claude-mail-tui)
-- **Original TypeScript Version**: `email-agent/` directory
+- **Repository**: [GitHub](https://github.com/samay58/claude-mail) (monorepo)
+- **Backend**: `../backend/` directory (Node.js/TypeScript)
 - **Documentation**: This file + archives in `docs/`
-- **Dependencies**: See `go.mod` and `package.json`
+- **Dependencies**: See `go.mod` (this dir) and `../backend/package.json`
 
 ---
 
-_Last updated: 2025-10-27 | Phase 5 In Progress (40% - Search + Help Complete) | 67.5% Overall_
+_Last updated: 2025-12-16 | Phase 5 Complete | Monorepo restructure complete_

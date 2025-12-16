@@ -144,16 +144,21 @@ Phase 6 is complete when:
 ## 🚀 Quick Start Commands
 
 ```bash
-# Start the Node agent (required)
-cd ../email-agent
+# Option 1: Use unified launcher (from repo root)
+cd claude-mail
+./start.sh
+
+# Option 2: Manual startup
+# Terminal 1: Start the Node backend
+cd claude-mail/backend
 npm run agent
 
-# In another terminal, run the TUI
-cd ../claude-mail-tui
+# Terminal 2: Run the TUI
+cd claude-mail/tui
 go run cmd/claudemail/main.go
 
 # Build for production
-go build -o claude-mail cmd/claudemail/main.go
+go build -o claudemail cmd/claudemail/main.go
 ```
 
 ---

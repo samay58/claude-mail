@@ -1,10 +1,11 @@
 # 📊 Project Status - Claude Email Agent Priority Scoring System
 
-**Last Updated**: 2025-12-04
+**Last Updated**: 2025-12-16
 **Current Phase**: ✅ Phase 5.6 Transactional Email Detection Complete
 **Test Pass Rate**: 111/111 (100%)
 **Build Status**: ✅ Zero TypeScript errors, Zero Go compilation errors
 **Database State**: Clean (ready for fresh sync)
+**Repository**: Monorepo (backend/ + tui/ unified)
 
 ---
 
@@ -20,6 +21,50 @@ We are building a **Gmail Priority Inbox-inspired email scoring system** using R
 - Security alerts → 55/normal (routine, too many to be urgent)
 - Sync limit increased 150→2000, IMAP timeouts 10s→60s
 - Robustness tested: 557 emails in 705ms, 2000 reliable, 5000 hits Gmail limits
+
+---
+
+## 🔄 **Monorepo Restructure (2025-12-16)**
+
+The project was restructured from two separate repositories into a unified monorepo for easier development and deployment.
+
+### What Changed
+| Before | After |
+|--------|-------|
+| `email-agent/` (backend) | `claude-mail/backend/` |
+| `claude-mail-tui/` (separate repo) | `claude-mail/tui/` |
+| Two git repos | Single monorepo |
+| Manual two-terminal startup | `./start.sh` unified launcher |
+
+### Why Monorepo
+1. **Simpler setup** - One clone, one repo, unified scripts
+2. **Coordinated changes** - Single commit for API contract changes
+3. **Easier maintenance** - No cross-repo dependency management
+4. **Better for portfolio** - Single GitHub URL showcases full project
+
+### New Project Structure
+```
+claude-mail/
+├── backend/           # Node.js API server (this directory)
+│   ├── src/           # TypeScript source
+│   ├── config/        # User preferences (gitignored)
+│   ├── data/          # SQLite database (gitignored)
+│   └── package.json
+├── tui/               # Go Bubble Tea TUI
+│   ├── cmd/           # Entry point
+│   ├── internal/      # Application code
+│   └── go.mod         # github.com/samay58/claude-mail/tui
+├── start.sh           # Unified launcher
+├── setup.sh           # First-time setup
+└── README.md          # User documentation
+```
+
+### Security Scrubbing (Same Session)
+- Removed `data/emails.db` (137MB, 1,559 personal emails) from git tracking
+- Scrubbed personal email addresses from all documentation
+- Created example config templates (`user.example.json`, `user-preferences.example.json`)
+- Updated `.gitignore` for monorepo structure
+- Replaced absolute paths with relative paths
 
 ---
 
@@ -798,12 +843,18 @@ npm run test:ui          # Interactive UI
 **Primary Testing Interface: Go Bubble Tea TUI**
 
 ```bash
-# Step 1: Start the backend API server (in email-agent/)
+# Option 1: Use unified launcher (recommended)
+cd claude-mail
+./start.sh              # Starts backend + TUI automatically
+
+# Option 2: Manual startup
+# Terminal 1: Start backend API server (in backend/)
+cd claude-mail/backend
 npm run build            # TypeScript compilation
 npm run agent            # Start API server on port 5178
 
-# Step 2: Start the Go TUI client (in ../claude-mail-tui/)
-cd ../claude-mail-tui
+# Terminal 2: Start Go TUI client (in tui/)
+cd claude-mail/tui
 go build -o claudemail ./cmd/claudemail
 ./claudemail            # ← Primary user interface with priority indicators 🔴🟠🟢⚫
 
@@ -858,10 +909,18 @@ curl -X POST http://localhost:5178/emails/rescore \
 
 ## 🔗 **Related Documents**
 
-- **DEVELOPMENT_PROGRESS_LOG.md** - Detailed session logs (Weeks 1-3)
+**Backend (this directory)**:
 - **CLAUDE.md** - Architecture deep dive and development guidance
-- **README.md** - User-facing documentation
-- **TESTING.md** - Testing strategy and guidelines
+- **CHANGELOG.md** - Backend changes and releases
+
+**Root (../)**:
+- **README.md** - User-facing documentation, setup guide
+- **start.sh** - Unified launcher script
+- **setup.sh** - First-time setup
+
+**TUI (../tui/)**:
+- **MASTER_ROADMAP.md** - TUI feature roadmap
+- **NEXT_STEPS.md** - Planned improvements
 
 ---
 

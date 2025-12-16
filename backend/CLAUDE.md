@@ -2,30 +2,42 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🎯 Repository Role
+## 🎯 Repository Structure
 
-**This is the BACKEND API SERVER** for the Claude Mail ecosystem. The primary user interface is the **Go Bubble Tea TUI** located at `../claude-mail-tui/`.
+**Monorepo Layout**: Claude Mail is organized as a monorepo with two main components:
 
 ```
+claude-mail/
+├── backend/              # THIS DIRECTORY - Node.js API server
+│   ├── src/              # TypeScript source code
+│   ├── config/           # User preferences, example configs
+│   ├── data/             # SQLite database, logs
+│   └── package.json
+│
+├── tui/                  # Go Bubble Tea terminal interface
+│   ├── cmd/              # Main entry point
+│   ├── internal/         # Application code
+│   └── go.mod
+│
+├── start.sh              # Unified launcher (starts both)
+├── setup.sh              # First-time setup
+└── README.md             # User-facing documentation
+```
+
+**Architecture**:
+```
 ┌─────────────────────────────────┐
-│   Go Bubble Tea TUI (Frontend)  │  ← Primary user interface (separate repo)
-│   Location: ../claude-mail-tui/ │  ← Beautiful terminal UI with priority indicators
+│   Go Bubble Tea TUI (Frontend)  │  ← Primary user interface
+│   Location: ../tui/             │  ← Beautiful terminal UI with priority indicators
 │   Port: Terminal UI (no network)│
 └────────────┬────────────────────┘
              │ HTTP API calls
              │ localhost:5178
 ┌────────────▼────────────────────┐
-│  Node.js API Server (THIS REPO) │  ← THIS REPOSITORY
-│  Location: ./claude-mail/       │  ← RFC-based scoring engine
-│  Port: 5178                      │  ← Database, IMAP, SMTP, AI integration
+│  Node.js API Server (Backend)   │  ← THIS DIRECTORY (backend/)
+│   Location: ./                  │  ← RFC-based scoring engine
+│   Port: 5178                    │  ← Database, IMAP, SMTP, AI integration
 └──────────────────────────────────┘
-```
-
-**Critical**: Both repositories must exist as siblings for the system to work:
-```
-parent-folder/
-├── claude-mail/         # This repo (backend API)
-└── claude-mail-tui/     # Frontend TUI (separate repo)
 ```
 
 ---
@@ -71,12 +83,17 @@ cp .env.example .env
 ### Testing the Full System
 
 ```bash
-# Terminal 1: Start backend API
+# Option 1: Use the unified launcher (recommended)
 cd claude-mail
+./start.sh
+
+# Option 2: Manual startup
+# Terminal 1: Start backend API
+cd claude-mail/backend
 npm run agent
 
 # Terminal 2: Start Go TUI (primary interface)
-cd ../claude-mail-tui
+cd claude-mail/tui
 go build -o claudemail ./cmd/claudemail
 ./claudemail
 ```
@@ -336,7 +353,7 @@ describe('PriorityScorer', () => {
 
 ### API Integration Points
 
-The Go TUI (`../claude-mail-tui/`) calls these backend endpoints:
+The Go TUI (`../tui/`) calls these backend endpoints:
 
 1. **Initial Load**: `GET /emails` - Fetch emails with cached priorities
 2. **Sync**: `POST /sync` - Trigger IMAP sync + automatic scoring
@@ -363,10 +380,10 @@ User syncs emails → TUI calls POST /sync → Backend:
 When modifying API contracts:
 
 1. **Update backend**: `src/agent/server.ts`
-2. **Update TUI client**: `../claude-mail-tui/internal/data/client.go`
-3. **Test integration**: Start both services, verify in TUI
+2. **Update TUI client**: `../tui/internal/data/client.go`
+3. **Test integration**: Run `./start.sh` from repo root, verify in TUI
 4. **Document breaking changes** in commit messages
-5. **Commit to both repositories**
+5. **Single commit** covers both backend and TUI changes (monorepo advantage)
 
 ---
 
@@ -451,12 +468,18 @@ db.exec(`SELECT * FROM emails WHERE id = ${id}`);
 
 ## 📚 Related Documentation
 
+**In this directory (backend/)**:
 - **PROJECT_STATUS.md** - Detailed roadmap, current phase, metrics
-- **README.md** - User-facing documentation, features, setup
-- **REPO_LINKS.md** - Multi-repository architecture, Git workflow
-- **QUICK_START.md** - End-user shortcuts and workflows
-- **TESTING.md** - Testing strategy and guidelines
-- **DEVELOPMENT_PROGRESS_LOG.md** - Session logs (Weeks 1-3)
+- **CHANGELOG.md** - Backend changes and releases
+
+**At repo root (../)**:
+- **README.md** - User-facing documentation, setup, quick start
+- **start.sh** - Unified launcher script
+- **setup.sh** - First-time setup script
+
+**In TUI directory (../tui/)**:
+- **MASTER_ROADMAP.md** - Feature roadmap for TUI
+- **NEXT_STEPS.md** - Planned TUI improvements
 
 ---
 
