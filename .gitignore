@@ -1,21 +1,62 @@
-# Node
-node_modules/
-dist/
+# OS
 .DS_Store
+Thumbs.db
 
-# Env
-.env
-
-# Logs and generated data (keep sample file committed)
-data/profile/profile.json
-data/drafts/*.md
-data/logs/mail-*.jsonl
-
-# Editor
+# Editor/IDE
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
 
-# SQLite temp files
+# Claude Code
+.claude/
+
+# =============
+# Backend (Node.js)
+# =============
+
+# Dependencies
+backend/node_modules/
+
+# Build output
+backend/dist/
+
+# Environment (contains credentials)
+backend/.env
+
+# User-specific configuration
+backend/config/user.json
+backend/config/user-preferences.json
+
+# SQLite databases (contain email data)
+backend/data/emails.db
+backend/data/*.db
 *.db-shm
 *.db-wal
+
+# Log files
+backend/data/logs/*.log
+backend/data/logs/mail-*.jsonl
+
+# Generated data
+backend/data/profile/profile.json
+backend/data/drafts/*.md
+
+# =============
+# TUI (Go)
+# =============
+
+# Binary
+tui/claudemail
+
+# Go build cache (usually in GOPATH, but just in case)
+tui/vendor/
+
+# =============
+# Backup files
+# =============
+*.backup
+*.bak
+*.bak[0-9]
+*.log

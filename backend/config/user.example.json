@@ -1,0 +1,14 @@
+{
+  "name": "YourName",
+  "signatures": {
+    "formal": "Regards,\nYourName",
+    "casual": "Best,\nYourName",
+    "brief": "- yourname"
+  },
+  "defaultTone": "casual",
+  "aiContext": "I am a professional who values concise, actionable communication. I prefer friendly but efficient responses.",
+  "replyPreferences": {
+    "includeQuoted": true,
+    "defaultSignature": "casual"
+  }
+}

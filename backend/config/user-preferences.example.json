@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2025-01-01",
+
+  "vip": {
+    "description": "VIP contacts - ALWAYS top priority (score override to 100)",
+    "patterns": [
+      {
+        "type": "email_contains",
+        "value": "family-name",
+        "reason": "Family members"
+      },
+      {
+        "type": "domain",
+        "value": "yourcompany.com",
+        "reason": "Work domain"
+      }
+    ]
+  },
+
+  "self": {
+    "description": "Own emails - Important (75) but not urgent, to leave room for others",
+    "patterns": [
+      {
+        "type": "email",
+        "value": "your.email@gmail.com",
+        "reason": "Self (personal tasks/calendar)"
+      }
+    ]
+  },
+
+  "importantServices": {
+    "description": "Financial/legal/medical - ALWAYS surface even if they look like newsletters (score floor: 75)",
+    "domains": [
+      "yourbank.com",
+      "yourinvestments.com",
+      "bitwarden.com",
+      "1password.com"
+    ]
+  },
+
+  "valuableNewsletters": {
+    "description": "Newsletters worth reading - score as 'normal' instead of 'spam'",
+    "patterns": [
+      {
+        "type": "sender_contains",
+        "value": "newsletter-you-like",
+        "reason": "Valuable content"
+      }
+    ]
+  },
+
+  "recruitersOfInterest": {
+    "description": "Specific recruiters to prioritize",
+    "names": [
+      "Jane Smith",
+      "John Doe"
+    ]
+  }
+}
