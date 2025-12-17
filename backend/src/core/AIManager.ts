@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { EmailRecord } from '../database.js';
 import ConfigManager from '../config.js';
 
@@ -32,46 +32,27 @@ interface SenderProfile {
   responseTimeExpectation: string;
 }
 
+// Deep Infra with DeepSeek V3
+const DEEPINFRA_BASE_URL = 'https://api.deepinfra.com/v1/openai';
+const MODEL = 'deepseek-ai/DeepSeek-V3';
+
 class AIManager {
-  private anthropic: Anthropic;
+  private openai: OpenAI;
   private static instance: AIManager;
   private apiKey: string;
 
   private constructor() {
-    this.apiKey = process.env.ANTHROPIC_API_KEY || '';
+    this.apiKey = process.env.DEEPINFRA_API_KEY || '';
 
     if (!this.apiKey) {
-      console.warn('⚠️ ANTHROPIC_API_KEY not set. AI features will be limited.');
-      // Create a dummy client for now
-      this.anthropic = {} as Anthropic;
+      console.warn('⚠️ DEEPINFRA_API_KEY not set. AI features will be limited.');
+      this.openai = {} as OpenAI;
     } else {
-      this.anthropic = new Anthropic({
+      this.openai = new OpenAI({
         apiKey: this.apiKey,
+        baseURL: DEEPINFRA_BASE_URL,
       });
     }
-  }
-
-  /**
-   * Helper to create cacheable content for prompt caching (90% cost reduction)
-   * Marks static instructions as cacheable, dynamic email content as non-cacheable
-   */
-  private createCacheableMessages(systemInstruction: string, emailContent: string) {
-    return [
-      {
-        role: 'user' as const,
-        content: [
-          {
-            type: 'text' as const,
-            text: systemInstruction,
-            cache_control: { type: 'ephemeral' as const }
-          },
-          {
-            type: 'text' as const,
-            text: emailContent
-          }
-        ]
-      }
-    ];
   }
 
   static getInstance(): AIManager {
@@ -303,20 +284,23 @@ Sender Email: ${email.sender_email}
 Subject: ${email.subject}
 Body: ${email.body_text?.substring(0, 600) || email.snippet}`;
 
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
+      const response = await this.openai.chat.completions.create({
+        model: MODEL,
         max_tokens: 500,
-        messages: this.createCacheableMessages(systemInstruction, emailContent),
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: emailContent }
+        ],
         temperature: 0.3
       });
 
-      const content = response.content[0];
-      if (content.type === 'text') {
-        console.log(`🤖 Claude response: ${content.text}`);
+      const content = response.choices[0]?.message?.content;
+      if (content) {
+        console.log(`🤖 AI response: ${content}`);
         try {
           // Clean the response text (remove any non-JSON content)
-          const jsonMatch = content.text.match(/\{[^}]*\}/);
-          const jsonStr = jsonMatch ? jsonMatch[0] : content.text;
+          const jsonMatch = content.match(/\{[^}]*\}/);
+          const jsonStr = jsonMatch ? jsonMatch[0] : content;
 
           const parsed = JSON.parse(jsonStr);
           const result = {
@@ -336,8 +320,8 @@ Body: ${email.body_text?.substring(0, 600) || email.snippet}`;
         }
       }
     } catch (error: any) {
-      if (error?.status === 400 && error?.error?.error?.type === 'invalid_request_error') {
-        console.warn('⚠️  AI prioritization unavailable (low credits or rate limit). Using heuristic fallback.');
+      if (error?.status === 429 || error?.code === 'rate_limit_exceeded') {
+        console.warn('⚠️  AI prioritization unavailable (rate limit). Using heuristic fallback.');
         return this.heuristicPrioritize(email);
       } else {
         console.error('Error prioritizing email:', error);
@@ -398,27 +382,22 @@ Create 3 variations with these exact signatures:
 
 Return JSON array: [{"body": "...", "tone": "formal", "confidence": 0.9}]`;
 
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
+      const response = await this.openai.chat.completions.create({
+        model: MODEL,
         max_tokens: 1500,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.7
       });
 
-      const content = response.content[0];
-      if (content.type === 'text') {
+      const content = response.choices[0]?.message?.content;
+      if (content) {
         try {
-          const parsed = JSON.parse(content.text);
-          return parsed.suggestions || [];
+          const parsed = JSON.parse(content);
+          return parsed.suggestions || parsed || [];
         } catch {
           // Try to extract suggestions from text
           return [{
-            body: content.text,
+            body: content,
             tone: 'professional',
             confidence: 0.7
           }];
@@ -458,22 +437,17 @@ Return JSON array: [{"body": "...", "tone": "formal", "confidence": 0.9}]`;
         Respond in JSON format.
       `;
 
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
+      const response = await this.openai.chat.completions.create({
+        model: MODEL,
         max_tokens: 500,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.3
       });
 
-      const content = response.content[0];
-      if (content.type === 'text') {
+      const content = response.choices[0]?.message?.content;
+      if (content) {
         try {
-          const parsed = JSON.parse(content.text);
+          const parsed = JSON.parse(content);
           return {
             summary: parsed.summary || email.snippet || '',
             keyPoints: parsed.keyPoints || [],
@@ -482,7 +456,7 @@ Return JSON array: [{"body": "...", "tone": "formal", "confidence": 0.9}]`;
           };
         } catch {
           return {
-            summary: content.text.substring(0, 200),
+            summary: content.substring(0, 200),
             keyPoints: [],
             actionItems: [],
             sentiment: 'neutral'
@@ -490,8 +464,8 @@ Return JSON array: [{"body": "...", "tone": "formal", "confidence": 0.9}]`;
         }
       }
     } catch (error: any) {
-      if (error?.status === 400 && error?.error?.error?.type === 'invalid_request_error') {
-        console.warn('⚠️  AI summarization unavailable (low credits or rate limit). Using fallback.');
+      if (error?.status === 429 || error?.code === 'rate_limit_exceeded') {
+        console.warn('⚠️  AI summarization unavailable (rate limit). Using fallback.');
       } else {
         console.error('Error summarizing email:', error);
       }
@@ -539,22 +513,17 @@ Return JSON array: [{"body": "...", "tone": "formal", "confidence": 0.9}]`;
         Respond in JSON format with enhancedQuery and filters object.
       `;
 
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
+      const response = await this.openai.chat.completions.create({
+        model: MODEL,
         max_tokens: 300,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.2
       });
 
-      const content = response.content[0];
-      if (content.type === 'text') {
+      const content = response.choices[0]?.message?.content;
+      if (content) {
         try {
-          const parsed = JSON.parse(content.text);
+          const parsed = JSON.parse(content);
           return {
             enhancedQuery: parsed.enhancedQuery || query,
             filters: parsed.filters || {}
@@ -567,8 +536,8 @@ Return JSON array: [{"body": "...", "tone": "formal", "confidence": 0.9}]`;
         }
       }
     } catch (error: any) {
-      if (error?.status === 400 && error?.error?.error?.type === 'invalid_request_error') {
-        console.warn('⚠️  AI search analysis unavailable (low credits or rate limit). Using basic search.');
+      if (error?.status === 429 || error?.code === 'rate_limit_exceeded') {
+        console.warn('⚠️  AI search analysis unavailable (rate limit). Using basic search.');
       } else {
         console.error('Error analyzing search query:', error);
       }
@@ -613,22 +582,17 @@ Return JSON array: [{"body": "...", "tone": "formal", "confidence": 0.9}]`;
         Respond in JSON format.
       `;
 
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
+      const response = await this.openai.chat.completions.create({
+        model: MODEL,
         max_tokens: 400,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.4
       });
 
-      const content = response.content[0];
-      if (content.type === 'text') {
+      const content = response.choices[0]?.message?.content;
+      if (content) {
         try {
-          const parsed = JSON.parse(content.text);
+          const parsed = JSON.parse(content);
           return {
             email: senderEmail,
             name: senderName,
@@ -642,8 +606,8 @@ Return JSON array: [{"body": "...", "tone": "formal", "confidence": 0.9}]`;
         }
       }
     } catch (error: any) {
-      if (error?.status === 400 && error?.error?.error?.type === 'invalid_request_error') {
-        console.warn('⚠️  AI sender profiling unavailable (low credits or rate limit). Skipping profile.');
+      if (error?.status === 429 || error?.code === 'rate_limit_exceeded') {
+        console.warn('⚠️  AI sender profiling unavailable (rate limit). Skipping profile.');
       } else {
         console.error('Error profiling sender:', error);
       }
@@ -670,30 +634,25 @@ Return JSON array: [{"body": "...", "tone": "formal", "confidence": 0.9}]`;
         Respond with a JSON array of strings.
       `;
 
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
+      const response = await this.openai.chat.completions.create({
+        model: MODEL,
         max_tokens: 200,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.8
       });
 
-      const content = response.content[0];
-      if (content.type === 'text') {
+      const content = response.choices[0]?.message?.content;
+      if (content) {
         try {
-          const parsed = JSON.parse(content.text);
+          const parsed = JSON.parse(content);
           return Array.isArray(parsed) ? parsed : parsed.replies || [];
         } catch {
           return [];
         }
       }
     } catch (error: any) {
-      if (error?.status === 400 && error?.error?.error?.type === 'invalid_request_error') {
-        console.warn('⚠️  AI quick replies unavailable (low credits or rate limit). Using fallback.');
+      if (error?.status === 429 || error?.code === 'rate_limit_exceeded') {
+        console.warn('⚠️  AI quick replies unavailable (rate limit). Using fallback.');
       } else {
         console.error('Error generating quick replies:', error);
       }
