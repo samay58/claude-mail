@@ -29,6 +29,9 @@ type Model struct {
 	hasMore     bool
 	isLoading   bool
 	totalLoaded int
+
+	// Clear all confirmation state
+	confirmClear bool
 }
 
 // KeyMap for inbox navigation
@@ -41,6 +44,7 @@ type KeyMap struct {
 	Quit     key.Binding
 	NextPage key.Binding
 	GoToTop  key.Binding
+	ClearAll key.Binding
 }
 
 var DefaultKeyMap = KeyMap{
@@ -75,6 +79,10 @@ var DefaultKeyMap = KeyMap{
 	GoToTop: key.NewBinding(
 		key.WithKeys("g"),
 		key.WithHelp("g", "go to top"),
+	),
+	ClearAll: key.NewBinding(
+		key.WithKeys("X"), // Shift+X
+		key.WithHelp("X", "clear all"),
 	),
 }
 
@@ -145,6 +153,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	// Handle batch-specific messages first
 	switch msg := msg.(type) {
+	case ClearCompleteMsg:
+		// All emails cleared - reset to empty state
+		m.emails = []types.EmailRow{}
+		m.offset = 0
+		m.totalLoaded = 0
+		m.hasMore = false
+		m.updateTableRows()
+		return m, nil
+
 	case batch.BulkActionRequestMsg:
 		// Execute bulk action
 		return m, m.executeBulkAction(msg.Action, msg.EmailIDs)
@@ -196,6 +213,19 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if !m.focus {
+			return m, nil
+		}
+
+		// Handle clear confirmation dialog
+		if m.confirmClear {
+			switch msg.String() {
+			case "y", "Y":
+				m.confirmClear = false
+				return m, m.executeClearAll()
+			case "n", "N", "esc":
+				m.confirmClear = false
+				return m, nil
+			}
 			return m, nil
 		}
 
@@ -302,6 +332,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.hasMore = true
 				m.table.SetCursor(0)
 				return m, m.fetchEmails()
+
+			case key.Matches(msg, DefaultKeyMap.ClearAll):
+				// Show confirmation dialog for clearing all emails
+				m.confirmClear = true
+				return m, nil
 			}
 		}
 	}
@@ -371,6 +406,15 @@ func (m Model) View() string {
 
 			b.WriteString("\n" + styles.HelpStyle.Render(footer))
 		}
+	}
+
+	// Clear all confirmation dialog
+	if m.confirmClear {
+		confirmStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF6B6B")).
+			Bold(true)
+		confirm := confirmStyle.Render(fmt.Sprintf("\n⚠️  CLEAR ALL %d EMAILS? This cannot be undone. [Y/N]", len(m.emails)))
+		b.WriteString(confirm)
 	}
 
 	return b.String()
@@ -515,4 +559,20 @@ func (m Model) executeBulkAction(action string, emailIDs []string) tea.Cmd {
 // OpenEmailMsg signals that an email should be opened
 type OpenEmailMsg struct {
 	EmailID string
+}
+
+// ClearCompleteMsg signals that all emails have been cleared
+type ClearCompleteMsg struct {
+	Deleted int
+}
+
+// executeClearAll permanently deletes all emails from the database
+func (m Model) executeClearAll() tea.Cmd {
+	return func() tea.Msg {
+		deleted, err := m.client.ClearAllEmails()
+		if err != nil {
+			return types.ErrorMsg{Err: err}
+		}
+		return ClearCompleteMsg{Deleted: deleted}
+	}
 }

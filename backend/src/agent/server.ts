@@ -454,6 +454,13 @@ app.post('/emails/archive', asyncHandler(async (req: any, res: any) => {
   });
 }));
 
+app.post('/emails/clear-all', asyncHandler(async (_req: any, res: any) => {
+  console.log('⚠️  Clearing ALL emails from database...');
+  const result = db.clearAllEmails();
+  console.log(`✅ Cleared ${result.deleted} emails`);
+  res.json({ success: true, deleted: result.deleted });
+}));
+
 // ============================================================================
 // AI ROUTES
 // ============================================================================

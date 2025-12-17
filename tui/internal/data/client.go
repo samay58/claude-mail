@@ -424,3 +424,27 @@ func (c *Client) BulkArchive(emailIDs []string) error {
 	}
 	return nil
 }
+
+// ClearAllEmails permanently deletes all emails from the database
+func (c *Client) ClearAllEmails() (int, error) {
+	resp, err := c.httpClient.Post(
+		c.baseURL+"/emails/clear-all",
+		"application/json",
+		bytes.NewReader([]byte("{}")),
+	)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("clear failed: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Success bool `json:"success"`
+		Deleted int  `json:"deleted"`
+	}
+	json.NewDecoder(resp.Body).Decode(&result)
+	return result.Deleted, nil
+}

@@ -383,6 +383,18 @@ class DatabaseManager {
     stmt.run('ARCHIVE', id);
   }
 
+  clearAllEmails(): { deleted: number } {
+    const countStmt = this.db.prepare('SELECT COUNT(*) as count FROM emails');
+    const { count } = countStmt.get() as { count: number };
+
+    // Hard delete all emails (cascades to message_features, user_feedback)
+    this.db.exec('DELETE FROM emails');
+    this.db.exec('DELETE FROM ai_cache');  // Orphaned without cascade
+    this.db.exec('VACUUM');  // Reclaim disk space
+
+    return { deleted: count };
+  }
+
   // Contact operations
   private upsertContact(email: string, name?: string): void {
     // Note: domain is a GENERATED column and will be auto-calculated from email
