@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🧹 Session Cleanup
+
+Before ending a session, kill any running backend:
+```bash
+lsof -ti:5178 | xargs kill -9 2>/dev/null
+```
+
 ## 🎯 Repository Structure
 
 **Monorepo Layout**: Claude Mail is organized as a monorepo with two main components:
