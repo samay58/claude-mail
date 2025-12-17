@@ -2,7 +2,6 @@ package data
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -222,19 +221,11 @@ func (c *Client) ToggleRead(emailID string, read bool) error {
 }
 
 // TriggerSync triggers an IMAP sync and returns the result
-// Uses a longer timeout (5 minutes) since syncing large mailboxes can take time
 func (c *Client) TriggerSync() (*types.SyncResponse, error) {
-	// Create a context with 5-minute timeout for sync operations
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	// Use dedicated client with 5-minute timeout for sync (scoring 1000+ emails takes time)
+	syncClient := &http.Client{Timeout: 5 * time.Minute}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/sync", bytes.NewReader([]byte("{}")))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create sync request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := syncClient.Post(c.baseURL+"/sync", "application/json", bytes.NewReader([]byte("{}")))
 	if err != nil {
 		return nil, err
 	}
