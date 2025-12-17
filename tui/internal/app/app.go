@@ -157,6 +157,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Open search overlay (not when already in search/help)
 			if !m.showSearch && !m.showHelp {
 				m.showSearch = true
+				m.search.Reset() // Clear previous search state
 				return m, m.search.Init()
 			}
 

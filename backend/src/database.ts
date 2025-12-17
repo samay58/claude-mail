@@ -320,10 +320,10 @@ class DatabaseManager {
       return this.getEmails(limit);
     }
 
-    // Escape special FTS5 characters and clean query
+    // Clean query: remove special FTS5 characters
     const cleanQuery = query
-      .replace(/[\/\\"']/g, ' ')     // Remove special chars
-      .replace(/\s+/g, ' ')          // Normalize whitespace
+      .replace(/[\/\\"'(){}[\]^~@#$%&|<>]/g, ' ')  // Remove FTS5 special chars
+      .replace(/\s+/g, ' ')                         // Normalize whitespace
       .trim();
 
     if (!cleanQuery) {
@@ -331,6 +331,10 @@ class DatabaseManager {
     }
 
     try {
+      // Build prefix query: "john smith" → "john* smith*" for partial matching
+      const words = cleanQuery.split(' ').filter(w => w.length > 0);
+      const prefixQuery = words.map(w => `"${w}"*`).join(' ');
+
       // Try FTS5 search first
       const stmt = this.db.prepare(`
         SELECT e.* FROM emails e
@@ -339,11 +343,11 @@ class DatabaseManager {
         ORDER BY e.date DESC
         LIMIT ?
       `);
-      return stmt.all(cleanQuery, limit) as EmailRecord[];
+      return stmt.all(prefixQuery, limit) as EmailRecord[];
     } catch (error) {
       console.error('FTS5 search failed, falling back to LIKE:', error);
 
-      // Fallback to LIKE search
+      // Fallback to LIKE search (supports partial matching)
       const stmt = this.db.prepare(`
         SELECT * FROM emails
         WHERE subject LIKE ? OR sender_name LIKE ? OR sender_email LIKE ? OR body_text LIKE ?
