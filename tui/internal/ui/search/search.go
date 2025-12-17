@@ -1,6 +1,7 @@
 package search
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -14,7 +15,7 @@ import (
 	"github.com/samay58/claude-mail/tui/internal/types"
 )
 
-const debounceDelay = 350 * time.Millisecond
+const debounceDelay = 100 * time.Millisecond
 
 // Model represents the search overlay
 type Model struct {
@@ -29,7 +30,9 @@ type Model struct {
 	searching    bool
 	lastQuery    string
 	pendingQuery string
-	debounceID   int // Incremented to cancel stale debounce ticks
+	debounceID   int                    // Incremented to cancel stale debounce ticks
+	cancelFunc   context.CancelFunc     // Cancel in-flight HTTP requests
+	searchID     int                    // Incremented to ignore stale results
 
 	width  int
 	height int
@@ -189,6 +192,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 
 	case SearchResultsMsg:
+		// Ignore stale results from cancelled requests
+		if msg.SearchID != m.searchID {
+			return m, nil
+		}
+
 		m.searching = false
 		m.results = msg.Results
 		m.updateTableRows()
@@ -323,6 +331,12 @@ func (m *Model) SetSize(width, height int) {
 
 // Reset clears the search state (call when opening search overlay)
 func (m *Model) Reset() {
+	// Cancel any in-flight requests
+	if m.cancelFunc != nil {
+		m.cancelFunc()
+		m.cancelFunc = nil
+	}
+
 	m.searchInput.SetValue("")
 	m.searchInput.Focus()
 	m.table.Blur()
@@ -332,6 +346,7 @@ func (m *Model) Reset() {
 	m.searching = false
 	m.historyIdx = -1
 	m.debounceID++
+	m.searchID++
 	m.updateTableRows()
 }
 
@@ -361,7 +376,18 @@ func (m *Model) updateTableRows() {
 	m.table.SetRows(rows)
 }
 
-func (m Model) executeSearch(query string) tea.Cmd {
+func (m *Model) executeSearch(query string) tea.Cmd {
+	// Cancel any previous in-flight request
+	if m.cancelFunc != nil {
+		m.cancelFunc()
+	}
+
+	// Create new context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	m.cancelFunc = cancel
+	m.searchID++
+	currentSearchID := m.searchID
+
 	return func() tea.Msg {
 		// Parse search query for filters
 		parsedQuery, filters := parseSearchQuery(query)
@@ -369,16 +395,20 @@ func (m Model) executeSearch(query string) tea.Cmd {
 		// Build API query with prefix matching
 		apiQuery := buildSearchQuery(parsedQuery, filters)
 
-		// Fetch results
-		emails, err := m.client.ListEmails(0, 50, apiQuery)
+		// Fetch results with context for cancellation
+		emails, err := m.client.ListEmailsByViewWithContext(ctx, 0, 50, apiQuery, "")
 		if err != nil {
+			// Ignore cancelled requests silently
+			if ctx.Err() == context.Canceled {
+				return nil
+			}
 			return types.ErrorMsg{Err: err}
 		}
 
 		// Apply client-side filters
 		filtered := filterResults(emails, filters)
 
-		return SearchResultsMsg{Results: filtered}
+		return SearchResultsMsg{Results: filtered, SearchID: currentSearchID}
 	}
 }
 
@@ -412,16 +442,19 @@ func parseSearchQuery(query string) (string, map[string]string) {
 	return plainQuery, filters
 }
 
-// buildSearchQuery creates an optimized query for the backend
+// buildSearchQuery combines plain query with filter values for backend search
 func buildSearchQuery(plainQuery string, filters map[string]string) string {
-	// Use from: filter as primary query if present
+	parts := []string{}
+	if plainQuery != "" {
+		parts = append(parts, plainQuery)
+	}
 	if from := filters["from"]; from != "" {
-		return from
+		parts = append(parts, from)
 	}
 	if to := filters["to"]; to != "" {
-		return to
+		parts = append(parts, to)
 	}
-	return plainQuery
+	return strings.Join(parts, " ")
 }
 
 // filterResults applies client-side filters
@@ -462,7 +495,8 @@ func filterResults(emails []types.EmailRow, filters map[string]string) []types.E
 
 // SearchResultsMsg is sent when search results are loaded
 type SearchResultsMsg struct {
-	Results []types.EmailRow
+	Results  []types.EmailRow
+	SearchID int // Used to ignore stale results from cancelled requests
 }
 
 // CloseSearchMsg is sent to close the search overlay

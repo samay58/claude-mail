@@ -2,10 +2,12 @@ package data
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/samay58/claude-mail/tui/internal/types"
@@ -22,7 +24,13 @@ func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        10,
+				MaxIdleConnsPerHost: 5,
+				IdleConnTimeout:     90 * time.Second,
+				DisableKeepAlives:   false,
+			},
 		},
 	}
 }
@@ -63,15 +71,25 @@ func (c *Client) ListEmails(offset, limit int, query string) ([]types.EmailRow, 
 
 // ListEmailsByView fetches emails filtered by view
 func (c *Client) ListEmailsByView(offset, limit int, query, view string) ([]types.EmailRow, error) {
-	url := fmt.Sprintf("%s/emails?offset=%d&limit=%d", c.baseURL, offset, limit)
+	return c.ListEmailsByViewWithContext(context.Background(), offset, limit, query, view)
+}
+
+// ListEmailsByViewWithContext fetches emails with context for cancellation
+func (c *Client) ListEmailsByViewWithContext(ctx context.Context, offset, limit int, query, view string) ([]types.EmailRow, error) {
+	reqURL := fmt.Sprintf("%s/emails?offset=%d&limit=%d", c.baseURL, offset, limit)
 	if query != "" {
-		url += "&q=" + query
+		reqURL += "&q=" + url.QueryEscape(query)
 	}
 	if view != "" {
-		url += "&view=" + view
+		reqURL += "&view=" + url.QueryEscape(view)
 	}
 
-	resp, err := c.httpClient.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

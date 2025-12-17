@@ -14,6 +14,7 @@ import SMTPManager from '../core/SMTPManager.js';
 import ImapManager from '../imap.js';
 import { FeatureExtractor } from '../core/features/FeatureExtractor.js';
 import { PriorityScorer } from '../core/features/PriorityScorer.js';
+import { getSearchCache } from '../core/SearchCache.js';
 
 const app = express();
 const port = parseInt(process.env.AGENT_PORT || '5178');
@@ -28,6 +29,7 @@ const ai = AIManager.getInstance();
 const smtp = SMTPManager.getInstance();
 const featureExtractor = FeatureExtractor.getInstance();
 const priorityScorer = PriorityScorer.getInstance();
+const searchCache = getSearchCache();
 
 /**
  * Helper: Parse RFC headers from database record into EmailHeaders format
@@ -85,11 +87,22 @@ app.get('/emails', asyncHandler(async (req: any, res: any) => {
   const q = req.query.q as string || '';
   const view = req.query.view as string || '';
 
+  // Build cache key from query params
+  const cacheKey = q ? `search:${q}:${view}` : '';
+
+  // Check cache for search queries (not for normal listing which changes frequently)
+  if (q && cacheKey) {
+    const cached = searchCache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+  }
+
   let emails: any[];
 
   if (q) {
-    // Search mode
-    emails = db.searchEmails(q, limit);
+    // Search mode - optimized with priority data
+    emails = db.searchEmailsWithPriority(q, limit);
   } else {
     // Normal listing with priorities
     emails = db.getEmailsWithPriority(limit, offset);
@@ -115,6 +128,11 @@ app.get('/emails', asyncHandler(async (req: any, res: any) => {
     priority: e.priority_score || 50,
     priorityCategory: e.priority_category || 'normal',
   }));
+
+  // Cache search results
+  if (q && cacheKey) {
+    searchCache.set(cacheKey, rows);
+  }
 
   res.json(rows);
 }));

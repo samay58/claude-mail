@@ -133,6 +133,10 @@ class DatabaseManager {
       )
     `);
 
+    // AI cache indexes for fast priority-sorted queries
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_ai_cache_priority ON ai_cache(priority_score DESC)');
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_ai_cache_category ON ai_cache(priority_category)');
+
     // Full-text search
     this.db.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS emails_fts USING fts5(
@@ -359,6 +363,62 @@ class DatabaseManager {
     }
   }
 
+  // Optimized search with priority data for TUI
+  searchEmailsWithPriority(query: string, limit = 50): any[] {
+    if (!query || !query.trim()) {
+      return this.getEmailsWithPriority(limit, 0);
+    }
+
+    const cleanQuery = query
+      .replace(/[\/\\"'(){}[\]^~@#$%&|<>]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanQuery) {
+      return this.getEmailsWithPriority(limit, 0);
+    }
+
+    try {
+      const words = cleanQuery.split(' ').filter(w => w.length > 0);
+      const prefixQuery = words.map(w => `"${w}"*`).join(' ');
+
+      // Optimized: exclude body columns, include priority data
+      const stmt = this.db.prepare(`
+        SELECT e.id, e.thread_id, e.message_id, e.subject,
+               e.sender_email, e.sender_name, e.recipient_emails,
+               e.date, e.snippet, e.is_read, e.is_starred, e.is_important,
+               e.folder, e.folder_type, e.labels, e.created_at, e.updated_at,
+               COALESCE(a.priority_score, 50) as priority_score,
+               COALESCE(a.priority_category, 'normal') as priority_category
+        FROM emails e
+        JOIN emails_fts fts ON e.rowid = fts.rowid
+        LEFT JOIN ai_cache a ON e.id = a.email_id
+        WHERE emails_fts MATCH ?
+        ORDER BY COALESCE(a.priority_score, 50) DESC, e.date DESC
+        LIMIT ?
+      `);
+      return stmt.all(prefixQuery, limit);
+    } catch (error) {
+      console.error('FTS5 search failed, falling back to LIKE:', error);
+
+      const stmt = this.db.prepare(`
+        SELECT e.id, e.thread_id, e.message_id, e.subject,
+               e.sender_email, e.sender_name, e.recipient_emails,
+               e.date, e.snippet, e.is_read, e.is_starred, e.is_important,
+               e.folder, e.folder_type, e.labels, e.created_at, e.updated_at,
+               COALESCE(a.priority_score, 50) as priority_score,
+               COALESCE(a.priority_category, 'normal') as priority_category
+        FROM emails e
+        LEFT JOIN ai_cache a ON e.id = a.email_id
+        WHERE e.subject LIKE ? OR e.sender_name LIKE ? OR e.sender_email LIKE ?
+        ORDER BY COALESCE(a.priority_score, 50) DESC, e.date DESC
+        LIMIT ?
+      `);
+      const searchTerm = `%${cleanQuery}%`;
+      return stmt.all(searchTerm, searchTerm, searchTerm, limit);
+    }
+  }
+
   markAsRead(id: string): void {
     const stmt = this.db.prepare('UPDATE emails SET is_read = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
     stmt.run(id);
@@ -465,8 +525,12 @@ class DatabaseManager {
   }
 
   getEmailsWithPriority(limit = 50, offset = 0): any[] {
+    // Optimized: exclude body_text and body_html from list queries (saves ~10KB/email)
     const stmt = this.db.prepare(`
-      SELECT e.*,
+      SELECT e.id, e.thread_id, e.message_id, e.subject,
+             e.sender_email, e.sender_name, e.recipient_emails,
+             e.date, e.snippet, e.is_read, e.is_starred, e.is_important,
+             e.folder, e.folder_type, e.labels, e.created_at, e.updated_at,
              COALESCE(a.priority_score, 50) as priority_score,
              COALESCE(a.priority_category, 'normal') as priority_category,
              a.priority_reason,
