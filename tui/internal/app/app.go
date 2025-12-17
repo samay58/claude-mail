@@ -404,9 +404,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case types.SyncStartedMsg:
-		// Sync started - update status bar
+		// Sync started - update status bar first, then trigger sync
 		m.statusBar.SetSyncInProgress(true)
-		return m, nil
+		// Return a command to trigger the actual sync
+		return m, func() tea.Msg {
+			syncResp, err := m.client.TriggerSync()
+			if err != nil {
+				return types.ErrorMsg{Err: err}
+			}
+			return types.SyncCompletedMsg{Response: *syncResp}
+		}
 
 	case types.SyncCompletedMsg:
 		// Sync completed - clear status bar and show toast

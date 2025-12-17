@@ -283,17 +283,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 
 		case key.Matches(msg, DefaultKeyMap.Sync):
-			// Send sync started message to trigger status bar
-			return m, tea.Batch(
-				func() tea.Msg { return types.SyncStartedMsg{} },
-				func() tea.Msg {
-					syncResp, err := m.client.TriggerSync()
-					if err != nil {
-						return types.ErrorMsg{Err: err}
-					}
-					return types.SyncCompletedMsg{Response: *syncResp}
-				},
-			)
+			// Send sync started message - app.go will trigger the actual sync
+			// This ensures "Syncing..." shows before the blocking HTTP call
+			return m, func() tea.Msg { return types.SyncStartedMsg{} }
 
 			case key.Matches(msg, DefaultKeyMap.NextPage):
 				// Load next page of emails
