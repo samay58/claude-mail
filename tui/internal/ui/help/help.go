@@ -91,6 +91,7 @@ func (m Model) View() string {
 		{
 			title: "Email Actions",
 			shortcuts: []shortcut{
+				{"s", "Sync emails from server"},
 				{"c", "Compose new email"},
 				{"r", "Reply to email"},
 				{"a", "Reply all"},
@@ -145,6 +146,7 @@ func (m Model) View() string {
 			title: "System",
 			shortcuts: []shortcut{
 				{"?", "Show this help"},
+				{"X", "Clear all emails (with confirmation)"},
 				{"q", "Quit application"},
 				{"Ctrl+C", "Force quit"},
 			},
