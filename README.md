@@ -56,7 +56,7 @@ go build -o claudemail ./cmd/claudemail
 - Node.js 18+
 - Go 1.21+
 - Gmail account with 2FA enabled and [app password](https://myaccount.google.com/apppasswords)
-- (Optional) Anthropic API key for AI features
+- (Optional) Deep Infra API key for AI features (quick replies, summaries)
 
 ## How It Works
 
@@ -95,6 +95,7 @@ See [backend/CLAUDE.md](backend/CLAUDE.md) for the complete architecture.
 | `r` | Reply |
 | `t` | Toggle star |
 | `s` | Sync |
+| `X` | Clear all emails (with confirmation) |
 | `/` | Search |
 | `?` | Help |
 | `q` | Quit |

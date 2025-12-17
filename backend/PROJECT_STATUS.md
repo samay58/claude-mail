@@ -1,11 +1,12 @@
 # 📊 Project Status - Claude Email Agent Priority Scoring System
 
-**Last Updated**: 2025-12-16
-**Current Phase**: ✅ Phase 5.6 Transactional Email Detection Complete
+**Last Updated**: 2025-12-16 (Session 2: Deep Infra + Clear All)
+**Current Phase**: ✅ Phase 6: AI Provider Migration + Data Management
 **Test Pass Rate**: 111/111 (100%)
 **Build Status**: ✅ Zero TypeScript errors, Zero Go compilation errors
-**Database State**: Clean (ready for fresh sync)
+**Database State**: Clean (0 emails - freshly cleared for new sync)
 **Repository**: Monorepo (backend/ + tui/ unified)
+**AI Provider**: Deep Infra (DeepSeek V3 model)
 
 ---
 
@@ -15,16 +16,83 @@ We are building a **Gmail Priority Inbox-inspired email scoring system** using R
 
 **Current State**: Core feature extraction and scoring pipeline is **COMPLETE** and **TESTED**. All 111 tests passing.
 
-**NEWEST: Phase 5.6 Transactional Email Detection (2025-12-04)**
-- Shipping/order emails → 55/normal (visible but not prioritized)
-- Receipts/invoices → 35/low (buried, just record-keeping)
-- Security alerts → 55/normal (routine, too many to be urgent)
-- Sync limit increased 150→2000, IMAP timeouts 10s→60s
-- Robustness tested: 557 emails in 705ms, 2000 reliable, 5000 hits Gmail limits
+**NEWEST: Phase 6 - Deep Infra Migration + Clear All Feature (2025-12-16)**
+- AI provider switched from Anthropic to Deep Infra (DeepSeek V3 model)
+- New Shift+X shortcut to clear all emails with confirmation dialog
+- Database cleared: 2,947 legacy test emails removed
+- Sync timeout fixed: 5-minute dedicated HTTP client for large syncs
 
 ---
 
-## 🔄 **Monorepo Restructure (2025-12-16)**
+## 🆕 **Session Log: 2025-12-16 (Deep Infra + Clear All)**
+
+### What Was Done
+
+| Task | Commits | Details |
+|------|---------|---------|
+| **Deep Infra Migration** | `8eb1883` | Replace Anthropic with Deep Infra API |
+| **Clear All Feature** | `983e689` | Shift+X to clear all emails |
+| **Database Cleanup** | N/A | Cleared 2,947 legacy emails |
+| **Sync Fixes** | `6f433c4`, `64a0c43` | Timeout + progress indicator |
+
+### Deep Infra Migration
+
+**Problem**: Anthropic API rate limits/credits exhausted
+```
+⚠️ AI quick replies unavailable (low credits or rate limit). Using fallback.
+```
+
+**Solution**: Swap to Deep Infra's OpenAI-compatible API
+- SDK: `@anthropic-ai/sdk` → `openai` v6.14.0
+- Base URL: `https://api.deepinfra.com/v1/openai`
+- Model: `deepseek-ai/DeepSeek-V3` ($0.028/M input tokens)
+- Env var: `ANTHROPIC_API_KEY` → `DEEPINFRA_API_KEY`
+
+**Files Changed**:
+- `backend/src/core/AIManager.ts` - All 6 AI methods updated
+- `backend/package.json` - Swapped dependencies
+- `backend/.env` - New API key variable
+
+### Clear All Feature (Shift+X)
+
+**Problem**: Legacy test emails cluttering TUI (2,947 emails)
+
+**Solution**: Add "Clear All" with confirmation dialog
+
+**Files Changed**:
+| File | Change |
+|------|--------|
+| `backend/src/database.ts` | `clearAllEmails()` - hard delete + VACUUM |
+| `backend/src/agent/server.ts` | `POST /emails/clear-all` endpoint |
+| `tui/internal/data/client.go` | `ClearAllEmails()` client method |
+| `tui/internal/ui/inbox/inbox.go` | Shift+X + Y/N confirmation |
+
+**UX Flow**:
+```
+Shift+X → "⚠️ CLEAR ALL 2,947 EMAILS? [Y/N]" → Y → DELETE + VACUUM → Empty inbox
+```
+
+### Sync Timeout Fix
+
+**Problem**: Sync timing out after 30 seconds on large mailboxes
+
+**Root Cause**: Go HTTP client's `Timeout` field overrides context timeout
+
+**Fix**: Dedicated HTTP client with 5-minute timeout for sync operations
+```go
+syncClient := &http.Client{Timeout: 5 * time.Minute}
+```
+
+### Key Learnings This Session
+
+1. **HTTP Client Timeouts**: `http.Client.Timeout` wins over `context.WithTimeout`
+2. **OpenAI SDK Flexibility**: Can point at any OpenAI-compatible API via `baseURL`
+3. **Message Flow Ordering**: Bubble Tea's `tea.Batch` doesn't guarantee order
+4. **VACUUM Importance**: Reclaims disk space after DELETE operations
+
+---
+
+## 🔄 **Monorepo Restructure (2025-12-16 Session 1)**
 
 The project was restructured from two separate repositories into a unified monorepo for easier development and deployment.
 
@@ -924,11 +992,17 @@ curl -X POST http://localhost:5178/emails/rescore \
 
 ---
 
-**Status**: ✅ **PHASE 5.5 COMPLETE** - User Preferences System implemented. Personalized scoring with VIP contacts, self-email tier, important services, and valuable newsletters. All tests passing. Dad's email now 100/urgent (was 27/spam). Own emails now 75/important (was 100/urgent).
+**Status**: ✅ **PHASE 6 COMPLETE** - Deep Infra migration + Clear All feature. AI powered by DeepSeek V3 via Deep Infra. Database management via Shift+X. All tests passing.
 
-**Next Steps**:
-1. **Optional**: Add transactional email detection (help@, orders@, noreply@ patterns)
-2. **Phase 6**: Implement feedback collection and adaptive learning
-3. **Phase 7**: Add more user preferences via Q&A
+**Completed This Session (2025-12-16)**:
+- ✅ Deep Infra AI provider migration (commits: `8eb1883`)
+- ✅ Clear All feature with Shift+X (commits: `983e689`)
+- ✅ Sync timeout and progress indicator fixes (commits: `6f433c4`, `64a0c43`)
+- ✅ Database cleanup (2,947 emails cleared)
 
-**Confidence**: HIGH - Solid foundation, user-validated preferences, clean priority distribution
+**Immediate Next Steps**:
+1. **Test Fresh Sync**: Run `./start.sh` → press `s` to sync fresh emails
+2. **Verify AI Features**: Test quick replies, summaries with Deep Infra
+3. **Optional**: Phase 7 - Feedback collection and adaptive learning
+
+**Confidence**: HIGH - Clean slate, new AI provider, all systems tested

@@ -77,7 +77,7 @@ cp .env.example .env
 # Edit .env with your credentials:
 # - IMAP_USER: Gmail address
 # - IMAP_PASSWORD: 16-char app password (https://myaccount.google.com/security)
-# - ANTHROPIC_API_KEY: Claude API key (optional, heuristic fallback available)
+# - DEEPINFRA_API_KEY: Deep Infra API key (optional, heuristic fallback available)
 ```
 
 ### Testing the Full System
@@ -257,7 +257,7 @@ The API server runs on `http://localhost:5178` and exposes the following endpoin
 - `POST /ai/quick-replies/:emailId` - Generate quick replies
 - `POST /ai/draft-suggestions` - Generate draft suggestions
 
-**Note**: AI endpoints fall back to heuristic scoring if `ANTHROPIC_API_KEY` is not set.
+**Note**: AI endpoints fall back to heuristic scoring if `DEEPINFRA_API_KEY` is not set.
 
 ---
 

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-12-16 (Session: Deep Infra Migration + Clear All Feature)
+
+- **Deep Infra AI Provider Migration**
+  - Replaced `@anthropic-ai/sdk` with `openai` SDK (v6.14.0)
+  - Point OpenAI client at Deep Infra API (`api.deepinfra.com`)
+  - Model: `deepseek-ai/DeepSeek-V3` (GPT-5 class, $0.028/M input tokens)
+  - All 6 AI methods updated: prioritization, quick replies, summarization, search analysis, sender profiling, draft suggestions
+  - Reason: Anthropic rate limits exhausted
+
+- **Clear All Emails Feature (Shift+X)**
+  - New database method: `clearAllEmails()` - hard delete + VACUUM
+  - New API endpoint: `POST /emails/clear-all`
+  - New TUI shortcut: Shift+X with Y/N confirmation dialog
+  - Full stack: database.ts → server.ts → client.go → inbox.go
+
+### Changed - 2025-12-16
+
+- **AI Provider**: Anthropic → Deep Infra (OpenAI-compatible API)
+- **Environment Variable**: `ANTHROPIC_API_KEY` → `DEEPINFRA_API_KEY`
+- **Error Handling**: Updated rate limit detection for OpenAI format
+
+### Fixed - 2025-12-16
+
+- **Sync Timeout**: TUI sync now uses dedicated 5-minute HTTP client (was 30s shared timeout)
+- **Progress Indicator**: "Syncing..." reliably shows before blocking HTTP call
+
+---
+
 ### Added - 2025-12-04 (Phase 5.6: Transactional Email Detection)
 
 - **Transactional Email Detection**: Fixed scores for shipping, receipts, and security emails
