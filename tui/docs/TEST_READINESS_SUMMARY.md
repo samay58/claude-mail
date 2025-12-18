@@ -1,5 +1,7 @@
 # Test Readiness Summary - Phase 5
 
+> Historical snapshot (2025-10-27). For current testing focus, see `tui/NEXT_STEPS.md`.
+
 **Date**: 2025-10-27
 **Status**: Ready for Manual Testing
 **Build**: ✅ Successful (21MB binary)

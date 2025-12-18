@@ -15,6 +15,7 @@ import ImapManager from '../imap.js';
 import { FeatureExtractor } from '../core/features/FeatureExtractor.js';
 import { PriorityScorer } from '../core/features/PriorityScorer.js';
 import { getSearchCache } from '../core/SearchCache.js';
+import { buildCleanBody } from '../core/CleanBody.js';
 
 const app = express();
 const port = parseInt(process.env.AGENT_PORT || '5178');
@@ -88,7 +89,7 @@ app.get('/emails', asyncHandler(async (req: any, res: any) => {
   const view = req.query.view as string || '';
 
   // Build cache key from query params
-  const cacheKey = q ? `search:${q}:${view}` : '';
+  const cacheKey = q ? `search:${q}:${view}:${limit}:${offset}` : '';
 
   // Check cache for search queries (not for normal listing which changes frequently)
   if (q && cacheKey) {
@@ -153,6 +154,8 @@ app.get('/emails/:id', asyncHandler(async (req: any, res: any) => {
     ? htmlToMarkdown(email.body_html)
     : email.body_text || '';
 
+  const cleanBody = buildCleanBody(email);
+
   res.json({
     id: email.id,
     threadId: email.thread_id,
@@ -165,6 +168,8 @@ app.get('/emails/:id', asyncHandler(async (req: any, res: any) => {
     bodyText: email.body_text,
     bodyHtml: email.body_html,
     markdown: markdown,
+    bodyClean: cleanBody.text,
+    bodyQuoted: cleanBody.quoted,
     snippet: email.snippet,
     isRead: Boolean(email.is_read),
     isStarred: Boolean(email.is_starred),

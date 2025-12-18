@@ -124,6 +124,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// When an overlay is open, let it own the key stream (except Ctrl+C to quit)
+		if m.showSearch || m.showHelp {
+			if msg.String() == "ctrl+c" {
+				return m, tea.Quit
+			}
+			break
+		}
+
 		// View-specific global shortcuts
 		if m.view == "list" {
 			// Number keys for view switching in list mode
@@ -155,15 +163,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "/":
 			// Open search overlay (not when already in search/help)
-			if !m.showSearch && !m.showHelp {
+			if m.view != "compose" && !m.showSearch && !m.showHelp {
 				m.showSearch = true
-				m.search.Reset() // Clear previous search state
+				m.search.Activate() // Preserve previous state for fast return
 				return m, m.search.Init()
 			}
 
 		case "?":
 			// Open help overlay (not when already in search/help)
-			if !m.showSearch && !m.showHelp {
+			if m.view != "compose" && !m.showSearch && !m.showHelp {
 				m.showHelp = true
 				return m, m.help.Init()
 			}

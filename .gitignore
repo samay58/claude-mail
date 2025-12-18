@@ -49,6 +49,11 @@ backend/data/drafts/*.md
 
 # Binary
 tui/claudemail
+tui/claude-mail
+
+# Screenshots can contain sensitive information (keep local only)
+tui/docs/screenshots/*
+!tui/docs/screenshots/README.md
 
 # Go build cache (usually in GOPATH, but just in case)
 tui/vendor/

@@ -15,7 +15,10 @@ import (
 	"github.com/samay58/claude-mail/tui/internal/types"
 )
 
-const debounceDelay = 100 * time.Millisecond
+const (
+	debounceDelay = 100 * time.Millisecond
+	minQueryLen   = 2
+)
 
 // Model represents the search overlay
 type Model struct {
@@ -124,7 +127,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			} else {
 				// Execute search immediately
 				query := m.searchInput.Value()
-				if query != "" && query != m.lastQuery {
+				if isQueryReady(query) && query != m.lastQuery {
 					m.lastQuery = query
 					m.searching = true
 					m.debounceID++ // Cancel any pending debounce
@@ -197,9 +200,30 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Preserve selection if possible
+		selectedID := ""
+		if len(m.results) > 0 {
+			cursor := m.table.Cursor()
+			if cursor >= 0 && cursor < len(m.results) {
+				selectedID = m.results[cursor].ID
+			}
+		}
+
 		m.searching = false
 		m.results = msg.Results
 		m.updateTableRows()
+
+		// Restore selection when possible
+		if selectedID != "" {
+			for i, email := range m.results {
+				if email.ID == selectedID {
+					m.table.SetCursor(i)
+					break
+				}
+			}
+		} else if len(m.results) > 0 {
+			m.table.SetCursor(0)
+		}
 
 		// Add to history if not empty and different from last
 		if m.lastQuery != "" && (len(m.history) == 0 || m.history[0] != m.lastQuery) {
@@ -210,11 +234,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 		m.historyIdx = -1
 
-		// Auto-focus table if we have results
-		if len(m.results) > 0 {
-			m.searchInput.Blur()
-			m.table.Focus()
-		}
 		return m, nil
 
 	case types.ErrorMsg:
@@ -231,20 +250,25 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 		newValue := m.searchInput.Value()
 		if newValue != oldValue {
-			// Schedule debounced search
-			m.pendingQuery = newValue
-			m.debounceID++
-			currentID := m.debounceID
+			// Schedule debounced search only when query is ready
+			if isQueryReady(newValue) {
+				m.pendingQuery = newValue
+				m.debounceID++
+				currentID := m.debounceID
 
-			if newValue != "" {
 				cmds = append(cmds, tea.Tick(debounceDelay, func(t time.Time) tea.Msg {
 					return debounceMsg{query: newValue, id: currentID}
 				}))
 			} else {
-				// Clear results immediately when input is cleared
-				m.results = []types.EmailRow{}
-				m.lastQuery = ""
+				// Cancel in-flight request and clear results for short queries
+				if m.cancelFunc != nil {
+					m.cancelFunc()
+					m.cancelFunc = nil
+				}
+				m.pendingQuery = ""
 				m.searching = false
+				m.lastQuery = ""
+				m.results = []types.EmailRow{}
 				m.updateTableRows()
 			}
 		}
@@ -289,6 +313,12 @@ func (m Model) View() string {
 			Render(fmt.Sprintf("✓ Found %d results", len(m.results)))
 		b.WriteString(status)
 		b.WriteString("\n\n")
+	} else if m.searchInput.Value() != "" && !isQueryReady(m.searchInput.Value()) {
+		status := lipgloss.NewStyle().
+			Foreground(styles.TextMuted).
+			Render("Type at least 2 characters to search")
+		b.WriteString(status)
+		b.WriteString("\n\n")
 	} else if m.lastQuery != "" {
 		status := lipgloss.NewStyle().
 			Foreground(styles.TextMuted).
@@ -327,6 +357,12 @@ func (m *Model) SetSize(width, height int) {
 	m.height = height
 	m.searchInput.Width = width - 20
 	m.table.SetHeight(height - 15)
+}
+
+// Activate focuses the input without clearing results (fast return to search)
+func (m *Model) Activate() {
+	m.searchInput.Focus()
+	m.table.Blur()
 }
 
 // Reset clears the search state (call when opening search overlay)
@@ -377,6 +413,10 @@ func (m *Model) updateTableRows() {
 }
 
 func (m *Model) executeSearch(query string) tea.Cmd {
+	if !isQueryReady(query) {
+		return nil
+	}
+
 	// Cancel any previous in-flight request
 	if m.cancelFunc != nil {
 		m.cancelFunc()
@@ -396,7 +436,7 @@ func (m *Model) executeSearch(query string) tea.Cmd {
 		apiQuery := buildSearchQuery(parsedQuery, filters)
 
 		// Fetch results with context for cancellation
-		emails, err := m.client.ListEmailsByViewWithContext(ctx, 0, 50, apiQuery, "")
+		emails, err := m.client.ListEmailsByViewWithContext(ctx, 0, 200, apiQuery, "")
 		if err != nil {
 			// Ignore cancelled requests silently
 			if ctx.Err() == context.Canceled {
@@ -444,10 +484,11 @@ func parseSearchQuery(query string) (string, map[string]string) {
 
 // buildSearchQuery combines plain query with filter values for backend search
 func buildSearchQuery(plainQuery string, filters map[string]string) string {
-	parts := []string{}
 	if plainQuery != "" {
-		parts = append(parts, plainQuery)
+		return plainQuery
 	}
+
+	parts := []string{}
 	if from := filters["from"]; from != "" {
 		parts = append(parts, from)
 	}
@@ -489,6 +530,26 @@ func filterResults(emails []types.EmailRow, filters map[string]string) []types.E
 		filtered = append(filtered, email)
 	}
 	return filtered
+}
+
+func isQueryReady(query string) bool {
+	plainQuery, filters := parseSearchQuery(query)
+
+	if runeCount(plainQuery) >= minQueryLen {
+		return true
+	}
+
+	for _, value := range filters {
+		if runeCount(value) >= minQueryLen {
+			return true
+		}
+	}
+
+	return false
+}
+
+func runeCount(s string) int {
+	return len([]rune(strings.TrimSpace(s)))
 }
 
 // Message types

@@ -1,5 +1,7 @@
 # Phase 5 Manual Test Plan
 
+> Historical snapshot (2025-10-27). For current testing focus, see `tui/NEXT_STEPS.md`.
+
 **Date**: 2025-10-27
 **Phase**: Phase 5 - Search & Polish (100%)
 **Purpose**: Validate all 4 Phase 5 features before beginning Phase 6

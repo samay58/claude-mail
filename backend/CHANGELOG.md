@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-12-18 (Session: Clean Body + Search Reliability)
+
+- **Clean Body Pipeline**
+  - New `CleanBody` module to extract readable text from messy emails
+  - Separates clean body vs quoted text for UI toggles
+  - Removes CSS/MJML template noise, tracking URLs, and boilerplate footers
+- **API Payload Enhancements**
+  - `GET /emails/:id` now returns `bodyClean` and `bodyQuoted`
+- **Scoring Uses Clean Content**
+  - `FeatureExtractor` now analyzes cleaned text for questions, deadlines, and intent
+
+### Fixed - 2025-12-18
+
+- **Search Query Handling**
+  - FTS5 prefix queries now use `token*` with OR semantics
+  - Short-token queries fall back to LIKE search for reliability
+  - Search cache key includes `limit`/`offset` to avoid stale results
+
 ### Added - 2025-12-16 (Session: Deep Infra Migration + Clear All Feature)
 
 - **Deep Infra AI Provider Migration**

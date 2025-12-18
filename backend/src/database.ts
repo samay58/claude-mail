@@ -318,6 +318,37 @@ class DatabaseManager {
     return stmt.get(id) as EmailRecord || null;
   }
 
+  private normalizeSearchQuery(query: string): string {
+    return query
+      .replace(/[\/\\"'(){}[\]^~@#$%&|<>]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private getSearchTokens(cleanQuery: string): string[] {
+    return cleanQuery.split(' ').filter(token => token.length > 0);
+  }
+
+  private buildFtsPrefixQuery(tokens: string[]): string {
+    const ftsTokens = tokens.filter(token => token.length >= 3);
+    return ftsTokens.map(token => `${token}*`).join(' OR ');
+  }
+
+  private shouldUseFts(tokens: string[]): boolean {
+    return tokens.some(token => token.length >= 3);
+  }
+
+  private searchEmailsLike(cleanQuery: string, limit: number): EmailRecord[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM emails
+      WHERE subject LIKE ? OR sender_name LIKE ? OR sender_email LIKE ? OR snippet LIKE ?
+      ORDER BY date DESC
+      LIMIT ?
+    `);
+    const searchTerm = `%${cleanQuery}%`;
+    return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm, limit) as EmailRecord[];
+  }
+
   searchEmails(query: string, limit = 50): EmailRecord[] {
     // Handle empty query
     if (!query || !query.trim()) {
@@ -325,20 +356,26 @@ class DatabaseManager {
     }
 
     // Clean query: remove special FTS5 characters
-    const cleanQuery = query
-      .replace(/[\/\\"'(){}[\]^~@#$%&|<>]/g, ' ')  // Remove FTS5 special chars
-      .replace(/\s+/g, ' ')                         // Normalize whitespace
-      .trim();
+    const cleanQuery = this.normalizeSearchQuery(query);
 
     if (!cleanQuery) {
       return this.getEmails(limit);
     }
 
-    try {
-      // Build prefix query: "john smith" → "john* smith*" for partial matching
-      const words = cleanQuery.split(' ').filter(w => w.length > 0);
-      const prefixQuery = words.map(w => `"${w}"*`).join(' ');
+    // Enforce a minimum query length to avoid expensive broad searches
+    if (cleanQuery.length < 2) {
+      return [];
+    }
 
+    const tokens = this.getSearchTokens(cleanQuery);
+    const useFts = this.shouldUseFts(tokens);
+    const ftsQuery = this.buildFtsPrefixQuery(tokens);
+
+    if (!useFts || !ftsQuery) {
+      return this.searchEmailsLike(cleanQuery, limit);
+    }
+
+    try {
       // Try FTS5 search first
       const stmt = this.db.prepare(`
         SELECT e.* FROM emails e
@@ -347,19 +384,10 @@ class DatabaseManager {
         ORDER BY e.date DESC
         LIMIT ?
       `);
-      return stmt.all(prefixQuery, limit) as EmailRecord[];
+      return stmt.all(ftsQuery, limit) as EmailRecord[];
     } catch (error) {
       console.error('FTS5 search failed, falling back to LIKE:', error);
-
-      // Fallback to LIKE search (supports partial matching)
-      const stmt = this.db.prepare(`
-        SELECT * FROM emails
-        WHERE subject LIKE ? OR sender_name LIKE ? OR sender_email LIKE ? OR body_text LIKE ?
-        ORDER BY date DESC
-        LIMIT ?
-      `);
-      const searchTerm = `%${cleanQuery}%`;
-      return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm, limit) as EmailRecord[];
+      return this.searchEmailsLike(cleanQuery, limit);
     }
   }
 
@@ -369,19 +397,40 @@ class DatabaseManager {
       return this.getEmailsWithPriority(limit, 0);
     }
 
-    const cleanQuery = query
-      .replace(/[\/\\"'(){}[\]^~@#$%&|<>]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const cleanQuery = this.normalizeSearchQuery(query);
 
     if (!cleanQuery) {
       return this.getEmailsWithPriority(limit, 0);
     }
 
-    try {
-      const words = cleanQuery.split(' ').filter(w => w.length > 0);
-      const prefixQuery = words.map(w => `"${w}"*`).join(' ');
+    // Enforce a minimum query length to avoid expensive broad searches
+    if (cleanQuery.length < 2) {
+      return [];
+    }
 
+    const tokens = this.getSearchTokens(cleanQuery);
+    const useFts = this.shouldUseFts(tokens);
+    const ftsQuery = this.buildFtsPrefixQuery(tokens);
+
+    if (!useFts || !ftsQuery) {
+      const stmt = this.db.prepare(`
+        SELECT e.id, e.thread_id, e.message_id, e.subject,
+               e.sender_email, e.sender_name, e.recipient_emails,
+               e.date, e.snippet, e.is_read, e.is_starred, e.is_important,
+               e.folder, e.folder_type, e.labels, e.created_at, e.updated_at,
+               COALESCE(a.priority_score, 50) as priority_score,
+               COALESCE(a.priority_category, 'normal') as priority_category
+        FROM emails e
+        LEFT JOIN ai_cache a ON e.id = a.email_id
+        WHERE e.subject LIKE ? OR e.sender_name LIKE ? OR e.sender_email LIKE ? OR e.snippet LIKE ?
+        ORDER BY COALESCE(a.priority_score, 50) DESC, e.date DESC
+        LIMIT ?
+      `);
+      const searchTerm = `%${cleanQuery}%`;
+      return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm, limit);
+    }
+
+    try {
       // Optimized: exclude body columns, include priority data
       const stmt = this.db.prepare(`
         SELECT e.id, e.thread_id, e.message_id, e.subject,
@@ -397,10 +446,9 @@ class DatabaseManager {
         ORDER BY COALESCE(a.priority_score, 50) DESC, e.date DESC
         LIMIT ?
       `);
-      return stmt.all(prefixQuery, limit);
+      return stmt.all(ftsQuery, limit);
     } catch (error) {
       console.error('FTS5 search failed, falling back to LIKE:', error);
-
       const stmt = this.db.prepare(`
         SELECT e.id, e.thread_id, e.message_id, e.subject,
                e.sender_email, e.sender_name, e.recipient_emails,
@@ -410,12 +458,12 @@ class DatabaseManager {
                COALESCE(a.priority_category, 'normal') as priority_category
         FROM emails e
         LEFT JOIN ai_cache a ON e.id = a.email_id
-        WHERE e.subject LIKE ? OR e.sender_name LIKE ? OR e.sender_email LIKE ?
+        WHERE e.subject LIKE ? OR e.sender_name LIKE ? OR e.sender_email LIKE ? OR e.snippet LIKE ?
         ORDER BY COALESCE(a.priority_score, 50) DESC, e.date DESC
         LIMIT ?
       `);
       const searchTerm = `%${cleanQuery}%`;
-      return stmt.all(searchTerm, searchTerm, searchTerm, limit);
+      return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm, limit);
     }
   }
 

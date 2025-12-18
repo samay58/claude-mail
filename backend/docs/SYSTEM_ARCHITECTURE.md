@@ -2,9 +2,11 @@
 
 > **Purpose**: This document provides a comprehensive technical description of the Claude Mail email prioritization system for discussion of potential improvements and enhancements.
 
-**Repository**: email-agent (Node.js/TypeScript backend)
-**Frontend**: claude-mail-tui (Go Bubble Tea terminal UI - separate repo)
-**Last Updated**: December 2024
+**Repository**: claude-mail (monorepo: `backend/` + `tui/`)
+**Frontend**: `tui/` (Go Bubble Tea terminal UI)
+**Last Updated**: 2025-12-18
+
+> For current status and recent session updates, see `backend/PROJECT_STATUS.md`.
 
 ---
 
@@ -58,7 +60,7 @@ Instead of training ML models on user behavior (which requires large datasets an
 │                     Go Bubble Tea TUI (Frontend)                    │
 │  - Beautiful terminal UI with priority indicators (🔴🟠🟢⚫)          │
 │  - Keyboard navigation, threading view, compose                      │
-│  - Location: ../claude-mail-tui/                                     │
+│  - Location: ../tui/                                                 │
 └────────────────────────────┬────────────────────────────────────────┘
                              │ HTTP API (localhost:5178)
                              ▼
@@ -67,7 +69,7 @@ Instead of training ML models on user behavior (which requires large datasets an
 │                                                                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
 │  │ IMAP Manager │  │ SMTP Manager │  │   AI Manager │               │
-│  │ (node-imap)  │  │ (nodemailer) │  │ (Claude API) │               │
+│  │ (node-imap)  │  │ (nodemailer) │  │  (AI API)   │               │
 │  └──────┬───────┘  └──────────────┘  └──────────────┘               │
 │         │                                                            │
 │         ▼                                                            │
@@ -158,6 +160,10 @@ Step 3: Feature Extraction (FeatureExtractor)
 │    - Extract deadlines (chrono-node + regex patterns)           │
 │    - Measure urgency (ASAP, urgent, deadline keywords)          │
 │    - Classify intent (request, inform, schedule, confirm)       │
+│                                                                 │
+│ Pre-step: CleanBody                                              │
+│    - Strip template/CSS noise and split quoted text              │
+│    - Use clean content for intent + scoring signals              │
 │                                                                 │
 │ Output: MessageFeatures object (22 fields)                      │
 └─────────────────────────────────────────────────────────────────┘
@@ -780,7 +786,7 @@ CREATE VIRTUAL TABLE emails_fts USING fts5(
 ### Technical Debt
 
 1. **Legacy TUI**: React-Ink TUI still in codebase but deprecated
-2. **AI Manager**: Claude API integration exists but rarely used (heuristics preferred)
+2. **AI Manager**: Optional AI API integration (Deep Infra/OpenAI-compatible); heuristics preferred for core scoring
 3. **Test Coverage**: No integration tests, only unit tests
 
 ---

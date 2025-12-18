@@ -1,7 +1,7 @@
 # 📊 Project Status - Claude Email Agent Priority Scoring System
 
-**Last Updated**: 2025-12-16 (Session 3: Search Performance Overhaul)
-**Current Phase**: ✅ Phase 7: Search Performance & Reliability
+**Last Updated**: 2025-12-18 (Session 4: Clean Body + UX Reliability)
+**Current Phase**: ✅ Phase 7: Search Performance & Reliability (Readability + UX polish)
 **Test Pass Rate**: 111/111 (100%)
 **Build Status**: ✅ Zero TypeScript errors, Zero Go compilation errors
 **Database State**: Clean (0 emails - freshly cleared for new sync)
@@ -16,11 +16,41 @@ We are building a **Gmail Priority Inbox-inspired email scoring system** using R
 
 **Current State**: Core feature extraction and scoring pipeline is **COMPLETE** and **TESTED**. All 111 tests passing.
 
-**NEWEST: Phase 7 - Search Performance Overhaul (2025-12-16)**
-- Fixed critical search bugs: duplicate UI, race conditions, broken filters
-- Reduced perceived latency from 500ms+ to <150ms
-- Added request cancellation, query caching, connection pooling
-- Optimized database queries (indexes, selective columns)
+**NEWEST: Phase 7 - Clean Body + UX Reliability (2025-12-18)**
+- Added clean-body extraction (drops CSS/MJML noise, trims footers, separates quoted text)
+- Preview now defaults to clean text, with toggles for raw and quoted content
+- Search UX tightened (2+ char gating, state preserved, input focus kept)
+- Scoring now uses cleaned content for more relevant intent signals
+
+---
+
+## 🆕 **Session Log: 2025-12-18 (Clean Body + UX Reliability)**
+
+### What Was Done
+
+| Task | Details |
+|------|---------|
+| **Clean Body Pipeline** | New `CleanBody` module to extract readable text, strip templates, and split quoted replies |
+| **Preview Toggles** | `v` toggles raw/clean, `q` toggles quoted text in clean view |
+| **Search UX** | 2+ character gate, search state preserved, input focus retained |
+| **Scoring Relevance** | Content analysis runs on cleaned text to avoid template noise |
+
+### Key Files Changed
+
+| File | Changes |
+|------|---------|
+| `backend/src/core/CleanBody.ts` | NEW: template/URL noise removal, quote/footer trimming |
+| `backend/src/agent/server.ts` | `bodyClean` + `bodyQuoted` returned in email detail |
+| `backend/src/core/features/FeatureExtractor.ts` | Cleaned body used for content analysis |
+| `tui/internal/ui/preview/preview.go` | Raw/quoted toggles, clean-first rendering |
+| `tui/internal/ui/search/search.go` | Search gating + preserved state |
+| `tui/internal/app/app.go` | Overlay key isolation for reliable input |
+
+### Key Learnings
+
+1. **Plain-text parts can be worse than HTML**: template CSS leaks into text/plain; choose the cleanest source.
+2. **Quote folding matters**: hiding quoted blocks makes the preview readable by default.
+3. **Search should not steal focus**: input-first UX keeps refinement fast and predictable.
 
 ---
 
@@ -452,7 +482,7 @@ Sanjay Dhawan email analysis:
    - Status bar shows loading progress
    - Can now navigate all 730+ emails
 
-   **Files Changed**: `~/claude-mail-tui/internal/ui/inbox/inbox.go`
+   **Files Changed**: `tui/internal/ui/inbox/inbox.go`
 
 3. **User Email Fix** (10 min)
    - FeatureExtractor now reads `process.env.IMAP_USER`
@@ -806,7 +836,7 @@ Duration    298ms
    ```
 
 3. **Verify Priority Scoring** (10 min)
-   - Start Go TUI: `cd ~/claude-mail-tui && ./claudemail`
+   - Start Go TUI: `cd ~/claude-mail/tui && ./claudemail`
    - Find "Sanjay Dhawan" email about "WEDDING GIFTS"
    - **Expected**: Score 70+ (🟠 important)
    - **Before**: Score 27 (⚫ spam)
@@ -1089,23 +1119,24 @@ curl -X POST http://localhost:5178/emails/rescore \
 
 ---
 
-**Status**: ✅ **PHASE 7 COMPLETE** - Search performance overhaul. Perceived latency reduced from 500ms+ to <150ms. All critical bugs fixed.
+**Status**: ✅ **PHASE 7 COMPLETE** - Search performance overhaul + clean-body readability pass. UX now cleaner and more stable.
 
-**Completed This Session (2025-12-16, Session 3)**:
-- ✅ Help screen shortcuts (commits: `c043309`)
-- ✅ Search bug fixes - duplicate UI, state mutation (commits: `83f8635`)
-- ✅ Search performance overhaul - 8 optimizations (commits: `86e7439`)
+**Completed This Session (2025-12-18, Session 4)**:
+- ✅ Clean-body extraction (CSS/MJML noise removal + footer trimming)
+- ✅ Quoted text toggle (`q`) and raw/clean toggle (`v`) in preview
+- ✅ Search UX tightened (2+ char gate, focus retained, state preserved)
+- ✅ Scoring now uses cleaned content for intent detection
 
-**Previously Completed (2025-12-16, Sessions 1-2)**:
+**Previously Completed (2025-12-16, Sessions 1-3)**:
+- ✅ Search performance overhaul (debounce, cancelation, caching)
 - ✅ Deep Infra AI provider migration
 - ✅ Clear All feature with Shift+X
-- ✅ Monorepo restructure
-- ✅ Security scrubbing
+- ✅ Monorepo restructure + security scrubbing
 
 **Immediate Next Steps**:
-1. **Test Search**: Run `./start.sh` → press `/` → verify instant response, no duplicates
-2. **Test Filters**: Try `from:user@example.com` and `is:unread` filters
-3. **Test Special Chars**: Search for queries with `+`, `&`, `?` characters
+1. **Rescore with Clean Content**: Run `POST /rescore-all` to refresh priorities using cleaned bodies
+2. **Verify Preview UX**: Open noisy HTML emails, confirm clean view + `q` quoted toggle
+3. **Consider DB Cache**: Add `body_clean` persistence to speed rendering and FTS search
 
 **Future Roadmap**:
 - **Phase 8**: Feedback collection and adaptive learning (Week 4 plan)

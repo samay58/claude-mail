@@ -15,6 +15,7 @@ import DatabaseManager, { EmailRecord } from '../../database.js';
 import { RFCGates, EmailHeaders, Attachment } from './RFCGates.js';
 import { RelationshipScorer } from './RelationshipScorer.js';
 import { ContentAnalyzer } from './ContentAnalyzer.js';
+import { buildCleanBody } from '../CleanBody.js';
 
 export interface MessageFeatures {
   email_id: string;
@@ -115,12 +116,14 @@ export class FeatureExtractor {
    */
   async extractFeatures(email: EmailRecord, headers?: EmailHeaders): Promise<MessageFeatures> {
     const now = new Date();
+    const cleanBody = buildCleanBody(email);
+    const bodyForAnalysis = cleanBody.text || email.body_text || '';
 
     // 1. Run RFC-compliant gates with heuristic fallback for newsletters
     const newsletterResult = RFCGates.detectNewsletter(
       headers,
       email.sender_email,
-      email.body_text,
+      bodyForAnalysis,
       email.body_html
     );
     const isNewsletter = newsletterResult.isNewsletter;
@@ -140,7 +143,7 @@ export class FeatureExtractor {
     const threadContext = await this.analyzeThreadContext(email);
 
     // 4. Analyze content intent
-    const contentAnalysis = this.analyzeContent(email.subject, email.body_text || '');
+    const contentAnalysis = this.analyzeContent(email.subject, bodyForAnalysis);
 
     // 5. Calculate reply prediction
     const replyPrediction = this.predictReplyNeed(

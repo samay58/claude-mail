@@ -272,9 +272,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				return m, nil
 
 			case "esc":
-				// Exit select mode (handled by batch model clearing selections)
+				// Exit select mode and clear selections
+				m.batch.Reset()
 				m.updateTableRows()
-				return m, batchCmd
+				return m, nil
 			}
 
 			// Let batch handle bulk action keys

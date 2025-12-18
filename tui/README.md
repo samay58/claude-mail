@@ -13,6 +13,7 @@ Go terminal interface for Claude Mail, built with [Bubble Tea](https://github.co
 - Batch operations (multi-select, bulk actions)
 - AI features (summarization, quick replies)
 - Email composer with draft suggestions
+- Clean body preview with raw/quoted toggles
 
 ## Keyboard Shortcuts
 
@@ -21,7 +22,7 @@ Go terminal interface for Claude Mail, built with [Bubble Tea](https://github.co
 - `Tab` - Switch panes
 - `Enter` - Open email
 - `Esc` - Go back
-- `q` - Quit
+- `q` - Quit (list view)
 
 ### Actions
 - `c` - Compose
@@ -31,6 +32,8 @@ Go terminal interface for Claude Mail, built with [Bubble Tea](https://github.co
 - `s` - Sync emails
 - `/` - Search
 - `?` - Help
+- `v` - Toggle raw/clean email body (detail view)
+- `q` (detail) - Toggle quoted text (clean view only)
 
 ### Batch Mode
 - `x` - Toggle select mode
@@ -45,4 +48,4 @@ go build -o claudemail ./cmd/claudemail
 ./claudemail
 ```
 
-Requires the backend API running on port 5178. See [backend/README.md](../backend/README.md).
+Requires the backend API running on port 5178. See the main [README](../README.md).

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-12-18
+
+- **Clean Email Body Rendering**
+  - Preview uses `bodyClean` by default to avoid CSS/MJML noise
+  - `q` toggles quoted text, `v` toggles raw/clean view
+- **Search UX Improvements**
+  - Search keeps input focused for fast refinements
+  - Minimum 2-character search gate with clear user feedback
+  - Search state preserved between opens for quick return
+
+### Fixed - 2025-12-18
+
+- **Keyboard Reliability**
+  - Overlay key handling isolates search/help from global shortcuts
+  - Batch selection `esc` reliably exits select mode
+
 ### Added - 2025-10-28
 
 - **Sync Status Indicator**: Status bar now shows "⟳ Syncing..." during email sync

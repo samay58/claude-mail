@@ -26,6 +26,8 @@ type Model struct {
 	focus           bool
 	loading         bool
 	showSummary     bool
+	showRaw         bool
+	showQuoted      bool
 	summary         *types.SummarizeResponse
 	summaryLoading  bool
 	summaryError    error // Track summary loading errors
@@ -105,6 +107,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.loading = false
 		// Reset summary state when loading new email
 		m.showSummary = false
+		m.showRaw = false
+		m.showQuoted = false
 		m.summary = nil
 		m.summaryLoading = false
 		m.summaryError = nil
@@ -157,6 +161,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 			// Re-render to show/hide summary
 			return m, m.renderEmail()
+
+		case "v", "V":
+			// Toggle raw view
+			m.showRaw = !m.showRaw
+			return m, m.renderEmail()
+
+		case "q", "Q":
+			// Toggle quoted text (clean view only)
+			if !m.showRaw {
+				m.showQuoted = !m.showQuoted
+				return m, m.renderEmail()
+			}
 
 		case "r":
 			// Reply
@@ -255,7 +271,7 @@ func (m Model) View() string {
 	}
 
 	// Help text with scroll indicator
-	helpText := fmt.Sprintf("s: AI summary • r: reply • a: reply all • f: forward • g/G: top/bottom • Space/PgDn: page down • %s• esc: back", scrollInfo)
+	helpText := fmt.Sprintf("s: AI summary • v: raw/clean • q: quoted • r: reply • a: reply all • f: forward • g/G: top/bottom • Space/PgDn: page down • %s• esc: back", scrollInfo)
 	help := "\n" + styles.HelpStyle.Render(helpText)
 	b.WriteString(help)
 
@@ -378,18 +394,7 @@ func (m Model) renderEmail() tea.Cmd {
 			}
 		}
 
-		// Use best available content source, always stripping HTML/CSS
-		content := ""
-		if m.email.Markdown != "" {
-			// Markdown might contain raw HTML/CSS - strip it
-			content = stripHTML(m.email.Markdown)
-		} else if m.email.BodyHTML != "" {
-			// HTML body needs aggressive stripping
-			content = stripHTML(m.email.BodyHTML)
-		} else {
-			// Plain text body (strip any residual HTML)
-			content = stripHTML(m.email.BodyText)
-		}
+		content := m.pickBodyContent()
 
 		// Render markdown (glamour handles markdown syntax nicely)
 		rendered, err := m.renderer.Render(content)
@@ -405,6 +410,42 @@ func (m Model) renderEmail() tea.Cmd {
 			summaryContent: summaryContent.String(),
 		}
 	}
+}
+
+func (m Model) pickBodyContent() string {
+	if m.email == nil {
+		return ""
+	}
+
+	if !m.showRaw && m.email.BodyClean != "" {
+		return appendQuoted(m.email.BodyClean, m.email.BodyQuoted, m.showQuoted)
+	}
+
+	if m.showRaw && m.email.BodyText != "" {
+		return stripHTML(m.email.BodyText)
+	}
+
+	if m.email.Markdown != "" {
+		return stripHTML(m.email.Markdown)
+	}
+
+	if m.email.BodyHTML != "" {
+		return stripHTML(m.email.BodyHTML)
+	}
+
+	return stripHTML(m.email.BodyText)
+}
+
+func appendQuoted(body string, quoted string, showQuoted bool) string {
+	if !showQuoted || quoted == "" {
+		return body
+	}
+
+	if body != "" {
+		return body + "\n\n--- Quoted text ---\n" + quoted
+	}
+
+	return quoted
 }
 
 func (m Model) renderSummary() string {

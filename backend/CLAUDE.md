@@ -149,8 +149,9 @@ src/
 │   └── server.ts (26k)           # HTTP API server (15+ endpoints)
 │
 ├── core/
-│   ├── AIManager.ts (21k)        # Claude AI integration + heuristic fallback
+│   ├── AIManager.ts (21k)        # Deep Infra/OpenAI-compatible AI + heuristic fallback
 │   ├── SMTPManager.ts (6k)       # Email sending via SMTP
+│   ├── CleanBody.ts (4k)         # Clean body extraction + quoted splitting
 │   └── features/
 │       ├── FeatureExtractor.ts (12k)     # Orchestrates all feature extraction
 │       ├── PriorityScorer.ts (12k)       # Weighted linear scoring model
@@ -258,11 +259,12 @@ The API server runs on `http://localhost:5178` and exposes the following endpoin
   - Automatically populates `ai_cache` table
   - Powers the Go TUI priority indicators
 
-### AI Features (Optional - Claude API)
-- `POST /ai/prioritize/:emailId` - AI priority score (legacy)
+### AI Features (Optional - Deep Infra/OpenAI-compatible API)
+- `POST /ai/quick-replies` - Generate quick replies
+- `POST /ai/summarize` - Generate summary
+- `POST /ai/draft-suggest` - Generate draft suggestions
+- `POST /ai/priority-explain` - AI-assisted explainability (optional)
 - `POST /ai/prioritize-all` - Batch AI prioritization (legacy)
-- `POST /ai/quick-replies/:emailId` - Generate quick replies
-- `POST /ai/draft-suggestions` - Generate draft suggestions
 
 **Note**: AI endpoints fall back to heuristic scoring if `DEEPINFRA_API_KEY` is not set.
 
@@ -398,16 +400,15 @@ When modifying API contracts:
 
 ### Current Phase
 
-**Week 3 Complete** - RFC-based scoring system fully integrated
-- ✅ 111/111 tests passing
-- ✅ Zero TypeScript compilation errors
-- ✅ Integrated with Go Bubble Tea TUI
-- ✅ All sync endpoints use RFC-based scoring
+**Current Focus** - Readability + UX reliability
+- ✅ Clean body extraction for preview + scoring
+- ✅ Search reliability and input focus improvements
+- ✅ Overlay key isolation for snappy keyboard controls
 
-**Next Phase**: Week 4 - Adaptive Learning System
-- Implement user feedback tracking
-- Weight adaptation with Passive-Aggressive algorithm
-- A/B testing support
+**Next Phase**: Adaptive Learning + Feedback Loop
+- Capture user feedback signals
+- Adjust weights per-user
+- Add evaluation tooling for scoring changes
 
 See `PROJECT_STATUS.md` for detailed roadmap.
 
@@ -505,4 +506,4 @@ These standards provide deterministic, accurate classification that improves sco
 
 ---
 
-**Built with ❤️ using Claude AI and RFC-compliant email standards**
+**Built with RFC-compliant email standards and optional AI scoring**

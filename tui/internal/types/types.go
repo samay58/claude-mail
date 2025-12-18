@@ -29,6 +29,8 @@ type EmailDetail struct {
 	BodyText         string   `json:"bodyText"`
 	BodyHTML         string   `json:"bodyHtml"`
 	Markdown         string   `json:"markdown"`
+	BodyClean        string   `json:"bodyClean"`
+	BodyQuoted       string   `json:"bodyQuoted"`
 	Snippet          string   `json:"snippet"`
 	IsRead           bool     `json:"isRead"`
 	IsStarred        bool     `json:"isStarred"`

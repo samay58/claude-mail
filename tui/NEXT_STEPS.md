@@ -3,7 +3,7 @@
 **Target Duration**: 3 days
 **Priority**: HIGH
 **Complexity**: MEDIUM
-**Current Progress**: Ready to Start (0%)
+**Current Progress**: In Progress (Readability/UX pass complete)
 
 ---
 
@@ -33,7 +33,13 @@
    - Sync status with timestamps
    - Error warnings
 
-**Overall Progress**: 75% Complete (6 of 8 phases done)
+**Overall Progress**: 80% Complete (Readability/UX pass complete)
+
+### Recently Completed (2025-12-18)
+- ✅ Clean-body rendering in preview (CSS/MJML noise removed)
+- ✅ Quoted text toggle (`q`) and raw/clean toggle (`v`)
+- ✅ Search overlay now keeps input focus + 2+ char gate
+- ✅ Overlay key isolation for reliable input
 
 ---
 
@@ -61,6 +67,7 @@
 - [ ] Optimize database queries
 - [ ] Cache frequently accessed data
 - [ ] Profile CPU usage during operations
+- [ ] Consider persisting `body_clean` for instant preview rendering
 
 ### 2. Terminal Compatibility Testing (~1 day)
 

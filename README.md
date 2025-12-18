@@ -98,7 +98,10 @@ See [backend/CLAUDE.md](backend/CLAUDE.md) for the complete architecture.
 | `X` | Clear all emails (with confirmation) |
 | `/` | Search |
 | `?` | Help |
-| `q` | Quit |
+| `q` | Quit (list view) |
+| `Esc` | Back / close overlays |
+| `v` | Toggle raw/clean email body (detail view) |
+| `q` (detail) | Toggle quoted text (clean view only) |
 
 ## Configuration
 
